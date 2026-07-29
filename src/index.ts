@@ -14,7 +14,7 @@ const server = new McpServer({
 server.registerTool(
     "get_system_overview",
     {
-        description: "Retrieves a general summary of the system: OS name, version, architecture, CPU model, number of cores, hostname, and uptime."
+        description: "Use this tool whenever the user asks about their local operating system, local OS name/version, CPU specifications, hardware info, hostname, or system uptime."
     },
     async () => {
         const cpus = os.cpus();
@@ -42,7 +42,7 @@ server.registerTool(
 server.registerTool(
     "get_memory_status",
     {
-        description: "Retrieves real-time RAM memory statistics: total memory, free memory, used memory, and percentage used",
+        description: "Use this tool whenever the user asks about their local computer RAM memory usage, available RAM, free RAM, or memory performance.",
         inputSchema: z.object({
             unit: z.enum(["GB", "MB"]).optional().default("GB")
         })
@@ -76,7 +76,7 @@ server.registerTool(
 server.registerTool(
     "get_disk_space",
     {
-        description: "Retrieves storage space information for a disk drive or mount point: total space, free space, used space, and usage percentage.",
+        description: "Use this tool whenever the user asks about their local computer disk space, hard drive storage, or free space on drive C or root.",
         inputSchema: z.object({
             path: z.string().optional().default(os.platform() === "win32" ? "C:\\" : "/")
         })
