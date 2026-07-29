@@ -4,9 +4,7 @@
   "description": "Model Context Protocol (MCP) server for local system statistics, CPU, RAM, Disk, GPU, and process monitoring.",
   "type": "module",
   "main": "build/index.js",
-  "bin": {
-    "mcp-system-stats": "./build/index.js"
-  },
+  "bin": "./build/index.js",
   "scripts": {
     "build": "tsc"
   },
