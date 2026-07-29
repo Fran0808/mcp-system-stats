@@ -1,9 +1,9 @@
 {
   "name": "mcp-system-stats",
   "version": "1.0.0",
-  "description": "",
+  "description": "Model Context Protocol (MCP) server for local system statistics, CPU, RAM, Disk, GPU, and process monitoring.",
   "type": "module",
-  "main": "index.js",
+  "main": "build/index.js",
   "bin": {
     "mcp-system-stats": "./build/index.js"
   },
@@ -13,7 +13,14 @@
   "files": [
     "build"
   ],
-  "keywords": [],
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "system-stats",
+    "hardware-monitoring",
+    "claude-desktop"    
+  ],
+  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@modelcontextprotocol/server": "^2.0.0",
