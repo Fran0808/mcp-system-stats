@@ -4,6 +4,7 @@ import { z } from "zod"
 import os, { platform } from "node:os";
 import fs from "node:fs";
 import { error } from "node:console";
+import si from "systeminformation";
 
 const server = new McpServer({
     name: "system-stats",
@@ -117,7 +118,170 @@ server.registerTool(
         }
     }
 );
+server.registerTool(
+    "get_top_processes",
+    {
+        description: "Use this tool whenever the user asks about top processes, heavy applications, or which programs are consuming the most CPU or RAM memory on their local computer.",
+        inputSchema: z.object({
+            sortBy: z.enum(["cpu", "memory"]).optional().default("cpu"),
+            limit: z.number().optional().default(5)
+        })
+    },
+    async ({ sortBy, limit }) => {
+        try {
+            const processesData = await si.processes();
 
+            // Sort processes descending by CPU or memory
+            const sortedList = [...processesData.list].sort((a, b) => {
+                if (sortBy === "memory") {
+                    return b.memRss - a.memRss;
+                }
+                return b.cpu - a.cpu;
+            });
+
+            // Take the top N processes and format output
+            const topProcesses = sortedList.slice(0, limit).map((p) => ({
+                pid: p.pid,
+                name: p.name,
+                cpuPercentage: Number(p.cpu.toFixed(2)) + "%",
+                memoryMB: Number((p.memRss / 1024).toFixed(2))
+            }));
+
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({ sortBy, count: topProcesses.length, processes: topProcesses }, null, 2)
+                    }
+                ]
+            };
+        } catch (err: any) {
+            return {
+                isError: true,
+                content: [
+                    {
+                        type: "text",
+                        text: `Error retrieving top processes: ${err.message}`
+                    }
+                ]
+            };
+        }
+    }
+);
+server.registerTool(
+    "get_network_info",
+    {
+        description: "Use this tool whenever the user asks about their local computer network interfaces, IP addresses (IPv4/IPv6), MAC address, or network connectivity details."
+    },
+    async () => {
+        try {
+            const nets = os.networkInterfaces();
+            const networkDetails: Record<string, any[]> = {};
+
+            for (const name of Object.keys(nets)) {
+                const netList = nets[name];
+                if (netList) {
+                    networkDetails[name] = netList.map((net) => ({
+                        address: net.address,
+                        family: net.family,
+                        mac: net.mac,
+                        internal: net.internal
+                    }));
+                }
+            }
+
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(networkDetails, null, 2)
+                    }
+                ]
+            };
+        } catch (err: any) {
+            return {
+                isError: true,
+                content: [
+                    {
+                        type: "text",
+                        text: `Error retrieving network information: ${err.message}`
+                    }
+                ]
+            };
+        }
+    }
+);
+server.registerTool(
+    "search_process",
+    {
+        description: "Use this tool whenever the user asks if a specific program, application, service, or process (e.g. 'chrome', 'node', 'docker', 'vscode', 'spotify') is currently running on their local computer.",
+        inputSchema: z.object({
+            name: z.string()
+        })
+    },
+    async ({ name }) => {
+        try {
+            const processesData = await si.processes();
+
+            const matches = processesData.list.filter((p) =>
+                p.name.toLowerCase().includes(name.toLowerCase())
+            );
+
+            if (matches.length === 0) {
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                query: name,
+                                isRunning: false,
+                                message: `No active processes found matching '${name}'.`
+                            }, null, 2)
+                        }
+                    ]
+                };
+            }
+
+            const totalCpu = matches.reduce((sum, p) => sum + p.cpu, 0);
+            const totalMemoryKB = matches.reduce((sum, p) => sum + p.memRss, 0);
+
+            const instances = matches.map((p) => ({
+                pid: p.pid,
+                name: p.name,
+                cpuPercentage: Number(p.cpu.toFixed(2)) + "%",
+                memoryMB: Number((p.memRss / 1024).toFixed(2))
+            }));
+
+            const searchResult = {
+                query: name,
+                isRunning: true,
+                count: matches.length,
+                totalCpuPercentage: Number(totalCpu.toFixed(2)) + "%",
+                totalMemoryMB: Number((totalMemoryKB / 1024).toFixed(2)),
+                instances
+            };
+
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(searchResult, null, 2)
+                    }
+                ]
+            };
+        } catch (err: any) {
+            return {
+                isError: true,
+                content: [
+                    {
+                        type: "text",
+                        text: `Error searching for process '${name}': ${err.message}`
+                    }
+                ]
+            };
+        }
+    }
+);
 async function main(){
     const transport = new StdioServerTransport();
     await server.connect(transport);
