@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { z } from "zod"
-import os, { platform } from "node:os";
+import { z } from "zod";
+import os from "node:os";
 import fs from "node:fs";
-import { error } from "node:console";
 import si from "systeminformation";
 
 export const server = new McpServer({
@@ -16,29 +15,55 @@ export const server = new McpServer({
 server.registerTool(
     "get_system_overview",
     {
-        description: "Use this tool whenever the user asks about their local operating system, local OS name/version, CPU specifications, hardware info, hostname, or system uptime."
+        description: "Use this tool whenever the user asks about their local operating system, local OS name/version, CPU specifications, hardware info, hostname, system uptime, or current CPU usage."
     },
     async () => {
-        const cpus = os.cpus();
-        const overview = {
-            platform: os.platform(),
-            type: os.type(),
-            release: os.release(),
-            arch: os.arch(),
-            cpuModel: cpus.length > 0 ? cpus[0].model : "Unknown",
-            cpuCores: cpus.length,
-            hostname: os.hostname(),
-            username: os.userInfo().username,
-            uptimeSeconds: Math.floor(os.uptime())
-        };
-        return{
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(overview, null, 2)
-                }
-            ]
-        };
+        try {
+            const cpus = os.cpus();
+            const uptimeSeconds = Math.floor(os.uptime());
+
+            const days = Math.floor(uptimeSeconds / 86400);
+            const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+            const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+            const uptimeFormatted = `${days}d ${hours}h ${minutes}m`;
+
+            // Get real-time CPU load
+            const loadData = await si.currentLoad();
+            const cpuLoadPercentage = Number(loadData.currentLoad.toFixed(2)) + "%";
+
+            const overview = {
+                platform: os.platform(),
+                type: os.type(),
+                release: os.release(),
+                arch: os.arch(),
+                cpuModel: cpus.length > 0 ? cpus[0].model : "Unknown",
+                cpuCores: cpus.length,
+                cpuLoadPercentage,
+                hostname: os.hostname(),
+                username: os.userInfo().username,
+                uptimeSeconds,
+                uptimeFormatted
+            };
+
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(overview, null, 2)
+                    }
+                ]
+            };
+        } catch (err: any) {
+            return {
+                isError: true,
+                content: [
+                    {
+                        type: "text",
+                        text: `Error retrieving system overview: ${err.message}`
+                    }
+                ]
+            };
+        }
     }
 )
 server.registerTool(
@@ -85,7 +110,7 @@ server.registerTool(
     },
     async ({ path }) => {
         try {
-            const stats = fs.statfsSync(path);
+            const stats = await fs.promises.statfs(path);
             const totalBytes = stats.bsize * stats.blocks;
             const freeBytes = stats.bsize * stats.bfree;
             const usedBytes = totalBytes - freeBytes;
@@ -140,8 +165,12 @@ server.registerTool(
                 return b.cpu - a.cpu;
             });
 
+            const activeList = sortedList.filter((p) =>
+                sortBy === "memory" ? p.memRss > 0 : p.cpu > 0 || p.memRss > 0
+            );
+
             // Take the top N processes and format output
-            const topProcesses = sortedList.slice(0, limit).map((p) => ({
+            const topProcesses = activeList.slice(0, limit).map((p) => ({
                 pid: p.pid,
                 name: p.name,
                 cpuPercentage: Number(p.cpu.toFixed(2)) + "%",
@@ -400,17 +429,22 @@ server.registerTool(
             const alerts: string[] = [];
             let status: "HEALTHY" | "WARNING" | "CRITICAL" = "HEALTHY";
 
+            // Unified thresholds: CRITICAL >= 90%, WARNING >= 75%
             if (cpuLoad >= 90 || ramLoad >= 90) {
                 status = "CRITICAL";
             } else if (cpuLoad >= 75 || ramLoad >= 75) {
                 status = "WARNING";
             }
 
-            if (cpuLoad >= 85) {
-                alerts.push(`High CPU utilization detected (${cpuLoad}%).`);
+            if (cpuLoad >= 90) {
+                alerts.push(`CRITICAL: CPU utilization is very high (${cpuLoad}%).`);
+            } else if (cpuLoad >= 75) {
+                alerts.push(`WARNING: CPU utilization is elevated (${cpuLoad}%).`);
             }
-            if (ramLoad >= 85) {
-                alerts.push(`High RAM memory utilization detected (${ramLoad}%).`);
+            if (ramLoad >= 90) {
+                alerts.push(`CRITICAL: RAM memory utilization is very high (${ramLoad}%).`);
+            } else if (ramLoad >= 75) {
+                alerts.push(`WARNING: RAM memory utilization is elevated (${ramLoad}%).`);
             }
             if (alerts.length === 0) {
                 alerts.push("System is operating normally within optimal parameters.");
