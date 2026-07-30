@@ -7,7 +7,7 @@ import fs from "node:fs";
 import { error } from "node:console";
 import si from "systeminformation";
 
-const server = new McpServer({
+export const server = new McpServer({
     name: "system-stats",
     version: "1.0.0"
 })
@@ -453,7 +453,9 @@ async function main(){
     console.error("Server MCP running successfully")
 
 }
-main().catch((error) => {
-    console.error("Fatal error in main():", error);
-    process.exit(1);
-});
+if (process.env.NODE_ENV !== "test") {
+    main().catch((error) => {
+        console.error("Fatal error in main():", error);
+        process.exit(1);
+    });
+}
