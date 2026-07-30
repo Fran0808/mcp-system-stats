@@ -8,7 +8,8 @@
     "system-stats": "./build/index.js"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run"
   },
   "files": [
     "build"
@@ -18,7 +19,7 @@
     "mcp-server",
     "system-stats",
     "hardware-monitoring",
-    "claude-desktop"    
+    "claude-desktop"
   ],
   "license": "MIT",
   "dependencies": {
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }
