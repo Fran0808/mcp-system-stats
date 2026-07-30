@@ -206,17 +206,25 @@ server.registerTool(
     async () => {
         try {
             const nets = os.networkInterfaces();
-            const networkDetails: Record<string, any[]> = {};
+            const external: Record<string, any[]> = {};
+            const loopback: Record<string, any[]> = {};
 
             for (const name of Object.keys(nets)) {
                 const netList = nets[name];
-                if (netList) {
-                    networkDetails[name] = netList.map((net) => ({
-                        address: net.address,
-                        family: net.family,
-                        mac: net.mac,
-                        internal: net.internal
-                    }));
+                if (!netList) continue;
+
+                const mapped = netList.map((net) => ({
+                    address: net.address,
+                    family: net.family,
+                    mac: net.mac,
+                    internal: net.internal
+                }));
+
+                // Separate external interfaces from loopback
+                if (netList.some((net) => !net.internal)) {
+                    external[name] = mapped;
+                } else {
+                    loopback[name] = mapped;
                 }
             }
 
@@ -224,7 +232,7 @@ server.registerTool(
                 content: [
                     {
                         type: "text",
-                        text: JSON.stringify(networkDetails, null, 2)
+                        text: JSON.stringify({ external, loopback }, null, 2)
                     }
                 ]
             };
@@ -315,7 +323,7 @@ server.registerTool(
 server.registerTool(
     "get_gpu_stats",
     {
-        description: "Use this tool whenever the user asks about their local computer graphics card (GPU), VRAM memory, GPU utilization, or GPU temperature."
+        description: "Use this tool whenever the user asks about their local computer graphics card (GPU), VRAM memory, GPU utilization, GPU temperature, monitors, or display setup."
     },
     async () => {
         try {
@@ -330,11 +338,25 @@ server.registerTool(
                 bus: gpu.bus || "N/A"
             }));
 
+            const displays = graphicsData.displays.map((d) => ({
+                model: d.model || "Unknown",
+                vendor: d.vendor || "Unknown",
+                resolutionX: d.resolutionX ?? "N/A",
+                resolutionY: d.resolutionY ?? "N/A",
+                currentResolution: d.resolutionX && d.resolutionY ? `${d.resolutionX}x${d.resolutionY}` : "N/A",
+                refreshRateHz: d.currentRefreshRate ?? "N/A",
+                connection: d.connection || "N/A",
+                main: d.main ?? false
+            }));
+
             return {
                 content: [
                     {
                         type: "text",
-                        text: JSON.stringify({ count: gpus.length, gpus }, null, 2)
+                        text: JSON.stringify(
+                            { gpuCount: gpus.length, gpus, displayCount: displays.length, displays },
+                            null, 2
+                        )
                     }
                 ]
             };
