@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { server } from "../src/index.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inmemory.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 type TextContent = { type: "text"; text: string };
 
