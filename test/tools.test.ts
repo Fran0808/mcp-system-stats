@@ -33,6 +33,7 @@ describe("MCP System Stats Server Tools", () => {
         expect(toolNames).toContain("get_battery_status");
         expect(toolNames).toContain("get_system_health");
         expect(toolNames).toContain("get_cpu_stats");
+        expect(toolNames).toContain("get_network_speed");
     });
 
     it("should return system overview data", async () => {
@@ -121,4 +122,25 @@ describe("MCP System Stats Server Tools", () => {
         expect(Array.isArray(cpu.load.perCore)).toBe(true);
         expect(cpu.temperature).toBeDefined();
     });
+
+    it("should return network speed with interface breakdown", async () => {
+        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+        const client = new Client(
+            { name: "test-client", version: "1.0.0" },
+            { capabilities: {} }
+        );
+
+        await Promise.all([
+            server.connect(serverTransport),
+            client.connect(clientTransport)
+        ]);
+
+        const res = await client.callTool({ name: "get_network_speed" });
+        const content = res.content as TextContent[];
+        const speed = JSON.parse(content[0].text);
+
+        expect(speed.samplingIntervalMs).toBe(1000);
+        expect(speed.busiestInterface).toBeDefined();
+        expect(Array.isArray(speed.interfaces)).toBe(true);
+    }, 10000);
 });
