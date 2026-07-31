@@ -32,6 +32,7 @@ describe("MCP System Stats Server Tools", () => {
         expect(toolNames).toContain("get_gpu_stats");
         expect(toolNames).toContain("get_battery_status");
         expect(toolNames).toContain("get_system_health");
+        expect(toolNames).toContain("get_cpu_stats");
     });
 
     it("should return system overview data", async () => {
@@ -95,5 +96,29 @@ describe("MCP System Stats Server Tools", () => {
         const content = res.content as TextContent[];
         const health = JSON.parse(content[0].text);
         expect(["HEALTHY", "WARNING", "CRITICAL"]).toContain(health.status);
+    });
+
+    it("should return cpu stats with load and temperature", async () => {
+        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+        const client = new Client(
+            { name: "test-client", version: "1.0.0" },
+            { capabilities: {} }
+        );
+
+        await Promise.all([
+            server.connect(serverTransport),
+            client.connect(clientTransport)
+        ]);
+
+        const res = await client.callTool({ name: "get_cpu_stats" });
+        const content = res.content as TextContent[];
+        const cpu = JSON.parse(content[0].text);
+
+        expect(cpu.model).toBeDefined();
+        expect(cpu.cores).toBeGreaterThan(0);
+        expect(cpu.load).toBeDefined();
+        expect(cpu.load.totalPercentage).toBeDefined();
+        expect(Array.isArray(cpu.load.perCore)).toBe(true);
+        expect(cpu.temperature).toBeDefined();
     });
 });

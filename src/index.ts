@@ -503,6 +503,86 @@ server.registerTool(
         }
     }
 );
+server.registerTool(
+    "get_cpu_stats",
+    {
+        description: "Use this tool whenever the user asks about their CPU usage, CPU load per core, CPU temperature, CPU speed, or wants a complete overview of their processor performance."
+    },
+    async () => {
+        try {
+            const [loadData, tempData, cpuData] = await Promise.all([
+                si.currentLoad(),
+                si.cpuTemperature(),
+                si.cpu()
+            ]);
+
+            // Per-core load
+            const coreLoads = loadData.cpus.map((core, index) => ({
+                core: index,
+                loadPercentage: Number(core.load.toFixed(2)) + "%"
+            }));
+
+            // Per-core temperature
+            const coreTemps = tempData.cores && tempData.cores.length > 0
+                ? tempData.cores.map((temp, index) => ({
+                    core: index,
+                    tempC: temp !== null ? temp + "°C" : "N/A"
+                }))
+                : [];
+
+            // Determine temperature status
+            const mainTemp = tempData.main ?? null;
+            let tempStatus: "NORMAL" | "HOT" | "CRITICAL" = "NORMAL";
+            if (mainTemp !== null) {
+                if (mainTemp >= 90) tempStatus = "CRITICAL";
+                else if (mainTemp >= 75) tempStatus = "HOT";
+            }
+
+            const cpuStats = {
+                model: cpuData.manufacturer + " " + cpuData.brand,
+                cores: cpuData.cores,
+                physicalCores: cpuData.physicalCores,
+                speedGHz: {
+                    current: cpuData.speed ?? "N/A",
+                    min: cpuData.speedMin ?? "N/A",
+                    max: cpuData.speedMax ?? "N/A"
+                },
+                load: {
+                    totalPercentage: Number(loadData.currentLoad.toFixed(2)) + "%",
+                    userPercentage: Number(loadData.currentLoadUser.toFixed(2)) + "%",
+                    systemPercentage: Number(loadData.currentLoadSystem.toFixed(2)) + "%",
+                    idlePercentage: Number(loadData.currentLoadIdle.toFixed(2)) + "%",
+                    perCore: coreLoads
+                },
+                temperature: {
+                    mainC: mainTemp !== null ? mainTemp + "°C" : "N/A",
+                    maxC: tempData.max !== null && tempData.max !== undefined ? tempData.max + "°C" : "N/A",
+                    status: mainTemp !== null ? tempStatus : "Unavailable",
+                    perCore: coreTemps
+                }
+            };
+
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(cpuStats, null, 2)
+                    }
+                ]
+            };
+        } catch (err: any) {
+            return {
+                isError: true,
+                content: [
+                    {
+                        type: "text",
+                        text: `Error retrieving CPU statistics: ${err.message}`
+                    }
+                ]
+            };
+        }
+    }
+);
 async function main(){
     const transport = new StdioServerTransport();
     await server.connect(transport);
