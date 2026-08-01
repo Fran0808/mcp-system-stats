@@ -1,10 +1,23 @@
-# @fran0808/system-stats
+# MCP System Stats
 
 [![npm version](https://img.shields.io/npm/v/@fran0808/system-stats.svg?style=flat-square&color=blue)](https://www.npmjs.com/package/@fran0808/system-stats)
 [![CI Build](https://github.com/Fran0808/mcp-system-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/Fran0808/mcp-system-stats/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 A Model Context Protocol (MCP) server providing real-time local system statistics, CPU performance and thermal metrics, RAM usage, disk storage, network bandwidth, GPU status, and process monitoring for LLM assistants.
+
+---
+
+## Supported Clients
+
+This MCP Server works with any client supporting the Model Context Protocol:
+
+| Client | Setup Reference |
+|---|---|
+| **Claude Desktop** | [Claude MCP Documentation](https://modelcontextprotocol.io/quickstart/user) |
+| **Cursor** | [Cursor MCP Documentation](https://docs.cursor.com/context/model-context-protocol) |
+| **Windsurf** | [Windsurf MCP Documentation](https://docs.codeium.com/windsurf/mcp) |
+| **VS Code (GitHub Copilot)** | [VS Code MCP Documentation](https://code.visualstudio.com/docs/copilot/mcp) |
 
 ---
 
@@ -25,6 +38,7 @@ npx -y @fran0808/system-stats
 ```
 
 ### 3. Use it
+
 
 ```text
 get_system_overview   # See system, kernel and OS summary
