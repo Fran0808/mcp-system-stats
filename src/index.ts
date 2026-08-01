@@ -778,6 +778,91 @@ server.registerTool(
         }
     }
 );
+server.registerTool(
+    "get_hardware_specs",
+    {
+        description: "Use this tool whenever the user asks for detailed physical hardware specifications of their PC, such as motherboard model/brand, BIOS version, physical RAM sticks/slots layout (DDR type, speed, channels), or physical SSD/HDD drive models."
+    },
+    async () => {
+        try {
+            const [baseboard, bios, memLayout, diskLayout, systemData] = await Promise.all([
+                si.baseboard(),
+                si.bios(),
+                si.memLayout(),
+                si.diskLayout(),
+                si.system()
+            ]);
+
+            const motherboard = {
+                manufacturer: baseboard.manufacturer || "Unknown",
+                model: baseboard.model || "Unknown",
+                version: baseboard.version || "N/A",
+                bios: {
+                    vendor: bios.vendor || "Unknown",
+                    version: bios.version || "Unknown",
+                    releaseDate: bios.releaseDate || "N/A"
+                }
+            };
+
+            const systemModel = {
+                manufacturer: systemData.manufacturer || "Unknown",
+                model: systemData.model || "Unknown",
+                sku: systemData.sku || "N/A"
+            };
+
+            const ramSticks = memLayout.map((stick) => ({
+                sizeGB: Number((stick.size / (1024 ** 3)).toFixed(2)),
+                type: stick.type || "Unknown",
+                clockSpeedMHz: stick.clockSpeed || "N/A",
+                manufacturer: stick.manufacturer || "Unknown",
+                partNum: stick.partNum ? stick.partNum.trim() : "N/A",
+                formFactor: stick.formFactor || "N/A"
+            }));
+
+            const storageDrives = diskLayout.map((disk) => ({
+                name: disk.name || "Unknown",
+                type: disk.type || "Unknown",
+                interfaceType: disk.interfaceType || "N/A",
+                sizeGB: Number((disk.size / (1024 ** 3)).toFixed(2)),
+                vendor: disk.vendor || "Unknown",
+                smartStatus: disk.smartStatus || "N/A"
+            }));
+
+            const hardwareSpecs = {
+                systemModel,
+                motherboard,
+                ramLayout: {
+                    totalSticks: ramSticks.length,
+                    totalCapacityGB: ramSticks.reduce((sum, s) => sum + s.sizeGB, 0),
+                    sticks: ramSticks
+                },
+                physicalDrives: {
+                    count: storageDrives.length,
+                    drives: storageDrives
+                }
+            };
+
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(hardwareSpecs, null, 2)
+                    }
+                ]
+            };
+        } catch (err: any) {
+            return {
+                isError: true,
+                content: [
+                    {
+                        type: "text",
+                        text: `Error retrieving hardware specifications: ${err.message}`
+                    }
+                ]
+            };
+        }
+    }
+);
 async function main(){
     const transport = new StdioServerTransport();
     await server.connect(transport);

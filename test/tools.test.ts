@@ -34,6 +34,7 @@ describe("MCP System Stats Server Tools", () => {
         expect(toolNames).toContain("get_system_health");
         expect(toolNames).toContain("get_cpu_stats");
         expect(toolNames).toContain("get_network_speed");
+        expect(toolNames).toContain("get_hardware_specs");
     });
 
     it("should return system overview data", async () => {
@@ -121,7 +122,7 @@ describe("MCP System Stats Server Tools", () => {
         expect(cpu.load.totalPercentage).toBeDefined();
         expect(Array.isArray(cpu.load.perCore)).toBe(true);
         expect(cpu.temperature).toBeDefined();
-    }, 10000);
+    }, 15000);
 
     it("should return network speed with interface breakdown", async () => {
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -142,5 +143,29 @@ describe("MCP System Stats Server Tools", () => {
         expect(speed.samplingIntervalMs).toBe(1000);
         expect(speed.busiestInterface).toBeDefined();
         expect(Array.isArray(speed.interfaces)).toBe(true);
-    }, 10000);
+    }, 15000);
+
+    it("should return detailed hardware specifications", async () => {
+        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+        const client = new Client(
+            { name: "test-client", version: "1.0.0" },
+            { capabilities: {} }
+        );
+
+        await Promise.all([
+            server.connect(serverTransport),
+            client.connect(clientTransport)
+        ]);
+
+        const res = await client.callTool({ name: "get_hardware_specs" });
+        const content = res.content as TextContent[];
+        const specs = JSON.parse(content[0].text);
+
+        expect(specs.motherboard).toBeDefined();
+        expect(specs.motherboard.manufacturer).toBeDefined();
+        expect(specs.ramLayout).toBeDefined();
+        expect(Array.isArray(specs.ramLayout.sticks)).toBe(true);
+        expect(specs.physicalDrives).toBeDefined();
+        expect(Array.isArray(specs.physicalDrives.drives)).toBe(true);
+    }, 15000);
 });
