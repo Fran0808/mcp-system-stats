@@ -35,6 +35,7 @@ describe("MCP System Stats Server Tools", () => {
         expect(toolNames).toContain("get_cpu_stats");
         expect(toolNames).toContain("get_network_speed");
         expect(toolNames).toContain("get_hardware_specs");
+        expect(toolNames).toContain("get_usb_devices");
     });
 
     it("should return system overview data", async () => {
@@ -168,4 +169,28 @@ describe("MCP System Stats Server Tools", () => {
         expect(specs.physicalDrives).toBeDefined();
         expect(Array.isArray(specs.physicalDrives.drives)).toBe(true);
     }, 15000);
+
+    it("should return connected USB devices with category summary", async () => {
+        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+        const client = new Client(
+            { name: "test-client", version: "1.0.0" },
+            { capabilities: {} }
+        );
+
+        await Promise.all([
+            server.connect(serverTransport),
+            client.connect(clientTransport)
+        ]);
+
+        const res = await client.callTool({ name: "get_usb_devices" });
+        const content = res.content as TextContent[];
+        const usb = JSON.parse(content[0].text);
+
+        expect(typeof usb.totalConnected).toBe("number");
+        expect(usb.categorySummary).toBeDefined();
+        expect(usb.removable).toBeDefined();
+        expect(Array.isArray(usb.removable.devices)).toBe(true);
+        expect(usb.permanent).toBeDefined();
+        expect(Array.isArray(usb.permanent.devices)).toBe(true);
+    });
 });
