@@ -154,41 +154,97 @@ server.registerTool(
         description: "Use this tool whenever the user asks about top processes, heavy applications, or which programs are consuming the most CPU or RAM memory on their local computer.",
         inputSchema: z.object({
             sortBy: z.enum(["cpu", "memory"]).optional().default("cpu"),
-            limit: z.number().optional().default(5)
+            limit: z.number().min(1).max(20).optional().default(5),
+            groupByApp: z.boolean().optional().default(true)
         })
     },
-    async ({ sortBy, limit }) => {
+    async ({ sortBy, limit, groupByApp }) => {
         try {
             const processesData = await si.processes();
 
-            // Sort processes descending by CPU or memory
-            const sortedList = [...processesData.list].sort((a, b) => {
-                if (sortBy === "memory") {
-                    return b.memRss - a.memRss;
-                }
-                return b.cpu - a.cpu;
-            });
+            if (groupByApp) {
+                const groupedMap = new Map<string, {
+                    name: string;
+                    instances: number;
+                    totalMemoryKB: number;
+                    totalCpu: number;
+                    pids: number[];
+                }>();
 
-            const activeList = sortedList.filter((p) =>
-                sortBy === "memory" ? p.memRss > 0 : p.cpu > 0 || p.memRss > 0
-            );
+                for (const p of processesData.list) {
+                    if (p.memRss <= 0 && p.cpu <= 0) continue;
 
-            // Take the top N processes and format output
-            const topProcesses = activeList.slice(0, limit).map((p) => ({
-                pid: p.pid,
-                name: p.name,
-                cpuPercentage: Number(p.cpu.toFixed(2)) + "%",
-                memoryMB: Number((p.memRss / 1024).toFixed(2))
-            }));
+                    const key = p.name.toLowerCase();
+                    const existing = groupedMap.get(key);
 
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({ sortBy, count: topProcesses.length, processes: topProcesses }, null, 2)
+                    if (existing) {
+                        existing.instances += 1;
+                        existing.totalMemoryKB += p.memRss;
+                        existing.totalCpu += p.cpu;
+                        if (existing.pids.length < 5) existing.pids.push(p.pid);
+                    } else {
+                        groupedMap.set(key, {
+                            name: p.name,
+                            instances: 1,
+                            totalMemoryKB: p.memRss,
+                            totalCpu: p.cpu,
+                            pids: [p.pid]
+                        });
                     }
-                ]
-            };
+                }
+
+                const apps = Array.from(groupedMap.values());
+                apps.sort((a, b) => {
+                    if (sortBy === "memory") {
+                        return b.totalMemoryKB - a.totalMemoryKB;
+                    }
+                    return b.totalCpu - a.totalCpu;
+                });
+
+                const topProcesses = apps.slice(0, limit).map((app) => ({
+                    name: app.name,
+                    instances: app.instances,
+                    totalMemoryMB: Number((app.totalMemoryKB / 1024).toFixed(2)),
+                    totalCpuPercentage: Number(app.totalCpu.toFixed(2)) + "%",
+                    pids: app.pids
+                }));
+
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({ sortBy, groupedByApp: true, count: topProcesses.length, processes: topProcesses }, null, 2)
+                        }
+                    ]
+                };
+            } else {
+                const sortedList = [...processesData.list].sort((a, b) => {
+                    if (sortBy === "memory") {
+                        return b.memRss - a.memRss;
+                    }
+                    return b.cpu - a.cpu;
+                });
+
+                const activeList = sortedList.filter((p) =>
+                    sortBy === "memory" ? p.memRss > 0 : p.cpu > 0 || p.memRss > 0
+                );
+
+                const topProcesses = activeList.slice(0, limit).map((p) => ({
+                    pid: p.pid,
+                    name: p.name,
+                    cpuPercentage: Number(p.cpu.toFixed(2)) + "%",
+                    memoryMB: Number((p.memRss / 1024).toFixed(2))
+                }));
+
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({ sortBy, groupedByApp: false, count: topProcesses.length, processes: topProcesses }, null, 2)
+                        }
+                    ]
+                };
+            }
         } catch (err: any) {
             return {
                 isError: true,

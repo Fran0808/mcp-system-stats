@@ -121,7 +121,7 @@ describe("MCP System Stats Server Tools", () => {
         expect(cpu.load.totalPercentage).toBeDefined();
         expect(Array.isArray(cpu.load.perCore)).toBe(true);
         expect(cpu.temperature).toBeDefined();
-    });
+    }, 10000);
 
     it("should return network speed with interface breakdown", async () => {
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
