@@ -1,0 +1,200 @@
+# @fran0808/system-stats
+
+[![npm version](https://img.shields.io/npm/v/@fran0808/system-stats.svg?style=flat-square&color=blue)](https://www.npmjs.com/package/@fran0808/system-stats)
+[![CI Build](https://github.com/Fran0808/mcp-system-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/Fran0808/mcp-system-stats/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+
+A Model Context Protocol (MCP) server providing real-time local system statistics, CPU performance and thermal metrics, RAM usage, disk storage, network bandwidth, GPU status, and process monitoring for LLM assistants.
+
+---
+
+## Quick Start
+
+### 1. Install
+
+```bash
+# Windows / macOS / Linux
+npm i -g @fran0808/system-stats
+```
+
+### 2. Configure your agent(s)
+
+```bash
+# Run via npx
+npx -y @fran0808/system-stats
+```
+
+### 3. Use it
+
+```text
+get_system_overview   # See system, kernel and OS summary
+get_cpu_stats         # Check CPU load, per-core stats and temperature
+get_top_processes     # Find heavy apps grouped like Task Manager
+get_network_speed     # Measure real-time download and upload speeds
+```
+
+---
+
+## MCP Client Quick Setup
+
+### Cursor
+
+Add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "system-stats": {
+      "command": "npx",
+      "args": ["-y", "@fran0808/system-stats"]
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Add to `claude_desktop_config.json`:
+
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux:** `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "system-stats": {
+      "command": "npx",
+      "args": ["-y", "@fran0808/system-stats"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "system-stats": {
+      "command": "npx",
+      "args": ["-y", "@fran0808/system-stats"]
+    }
+  }
+}
+```
+
+---
+
+## Features
+
+- **Real-Time System Overview:** Instant OS, kernel, uptime, and CPU hardware details.
+- **CPU Stats and Temperature:** Comprehensive CPU load per core, frequency specifications, and thermal readings with native non-admin fallback for Windows.
+- **Task-Manager-Style Process Aggregation:** Group top processes by application name (e.g. `brave.exe`, `code.exe`) with total memory, CPU utilization, and instance counts matching Windows Task Manager.
+- **Live Network Bandwidth:** Sample real-time download and upload speeds (KB/s and Mbps) per active interface.
+- **GPU and Displays:** Detect graphics cards, VRAM utilization, GPU temperatures, and connected monitors with resolution/refresh rates.
+- **Robust Diagnostics:** Overall system health check with automated alerts for high CPU or RAM pressure.
+- **Enterprise Ready:** 100% TypeScript, fully tested with Vitest and automated GitHub Actions CI.
+
+---
+
+## Available MCP Tools
+
+| Tool Name | Description | Key Inputs |
+|---|---|---|
+| `get_system_overview` | OS platform, release, hostname, username, uptime, and CPU load. | None |
+| `get_cpu_stats` | CPU specifications, speed (GHz), per-core load, and temperature. | None |
+| `get_memory_status` | Total, free, and used RAM with utilization percentage. | `unit`: `"GB"` \| `"MB"` |
+| `get_disk_space` | Disk capacity, free storage, used space, and usage percentage. | `path`: string (default `"C:\\"` or `"/"`) |
+| `get_top_processes` | Top resource-heavy applications grouped by name or PID. | `sortBy`: `"memory"` \| `"cpu"`, `limit`: `1..20`, `groupByApp`: `boolean` |
+| `search_process` | Search if a specific app (`chrome`, `node`, `docker`) is running. | `name`: string |
+| `get_network_info` | Network interfaces, IPv4/IPv6 addresses, MAC, and internal flags. | None |
+| `get_network_speed` | Real-time download/upload speed (KB/s and Mbps) per interface. | None |
+| `get_gpu_stats` | GPU controllers, VRAM MB, utilization %, temperature, and displays. | None |
+| `get_battery_status` | Laptop battery %, charging state, AC power, and health %. | None |
+| `get_system_health` | Comprehensive health check status (`HEALTHY`, `WARNING`, `CRITICAL`). | None |
+
+---
+
+## Sample Tool Outputs
+
+### `get_cpu_stats`
+```json
+{
+  "model": "Intel Core i7-12700F",
+  "cores": 20,
+  "physicalCores": 12,
+  "speedGHz": { "current": 2.1, "min": 2.1, "max": 2.1 },
+  "load": {
+    "totalPercentage": "33.15%",
+    "userPercentage": "18.14%",
+    "systemPercentage": "14.6%",
+    "idlePercentage": "66.85%",
+    "perCore": [{ "core": 0, "loadPercentage": "47.25%" }]
+  },
+  "temperature": {
+    "mainC": "27.9°C",
+    "maxC": "27.9°C",
+    "status": "NORMAL",
+    "sensorSource": "Windows Thermal Zone Performance Counter",
+    "perCore": []
+  }
+}
+```
+
+### `get_top_processes` (Grouped by Application)
+```json
+{
+  "sortBy": "memory",
+  "groupedByApp": true,
+  "count": 3,
+  "processes": [
+    {
+      "name": "brave.exe",
+      "instances": 22,
+      "totalMemoryMB": 2588.9,
+      "totalCpuPercentage": "1.42%",
+      "pids": [29084, 22128, 25652]
+    },
+    {
+      "name": "code.exe",
+      "instances": 19,
+      "totalMemoryMB": 2005.2,
+      "totalCpuPercentage": "0.2%",
+      "pids": [1402, 5912]
+    }
+  ]
+}
+```
+
+---
+
+## Local Development and Testing
+
+Clone the repository and install dependencies:
+
+```bash
+git clone https://github.com/Fran0808/mcp-system-stats.git
+cd mcp-system-stats
+npm install
+```
+
+### Build
+Compile TypeScript to JavaScript (`build/`):
+```bash
+npm run build
+```
+
+### Run Tests
+Execute the Vitest suite:
+```bash
+npm test
+```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
