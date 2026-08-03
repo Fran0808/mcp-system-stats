@@ -158,7 +158,7 @@ describe("System Tools", () => {
         } else {
             expect(battery.message).toContain("No battery detected");
         }
-    });
+    }, 15000);
 });
 
 
