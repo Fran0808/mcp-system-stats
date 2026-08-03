@@ -4,6 +4,14 @@
   "description": "Model Context Protocol (MCP) server for local system statistics, CPU, RAM, Disk, GPU, and process monitoring.",
   "type": "module",
   "main": "build/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fran0808/mcp-system-stats.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Fran0808/mcp-system-stats/issues"
+  },
+  "homepage": "https://github.com/Fran0808/mcp-system-stats#readme",
   "bin": {
     "system-stats": "./build/index.js"
   },
