@@ -158,7 +158,7 @@ describe("System Tools", () => {
         } else {
             expect(battery.message).toContain("No battery detected");
         }
-    }, 15000);
+    });
 });
 
 
@@ -182,7 +182,7 @@ describe("Performance Tools", () => {
 
         expect(cpu.temperature).toBeDefined();
         expect(["NORMAL", "HOT", "CRITICAL", "Unavailable"]).toContain(cpu.temperature.status);
-    }, 15000);
+    });
 
     it("get_memory_status should return data in GB by default", async () => {
         const client = await createConnectedClient();
@@ -247,7 +247,7 @@ describe("Network Tools", () => {
             expect(typeof iface.downloadMbps).toBe("number");
             expect(typeof iface.uploadMbps).toBe("number");
         }
-    }, 15000);
+    });
 });
 
 
@@ -353,7 +353,7 @@ describe("Hardware Tools", () => {
 
         expect(specs.physicalDrives).toBeDefined();
         expect(Array.isArray(specs.physicalDrives.drives)).toBe(true);
-    }, 15000);
+    });
 
     it("get_usb_devices should return categorized devices", async () => {
         const client = await createConnectedClient();
