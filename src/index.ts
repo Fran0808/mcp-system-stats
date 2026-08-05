@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { registerAllTools } from "./tools/index.js";
 import { registerAllPrompts } from "./prompts/index.js";
+import { registerAllResources } from "./resources/index.js";
 
 export const server = new McpServer({
     name: "system-stats",
@@ -11,6 +12,7 @@ export const server = new McpServer({
 
 registerAllTools(server);
 registerAllPrompts(server);
+registerAllResources(server);
 
 async function main() {
     const transport = new StdioServerTransport();

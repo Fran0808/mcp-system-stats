@@ -1,0 +1,60 @@
+import type { McpServer } from "@modelcontextprotocol/server";
+import os from "node:os";
+import si from "systeminformation";
+
+export function registerAllResources(server: McpServer) {
+    server.registerResource(
+        "system-overview",
+        "system://overview",
+        {
+            description: "Real-time summary of operating system, CPU model, core counts, RAM, uptime, and general hardware identity.",
+            mimeType: "application/json"
+        },
+        async (uri) => {
+            const cpus = os.cpus();
+            const uptimeSeconds = Math.floor(os.uptime());
+
+            const days = Math.floor(uptimeSeconds / 86400);
+            const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+            const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+            const uptimeFormatted = `${days}d ${hours}h ${minutes}m`;
+
+            let cpuLoadPercentage = "0%";
+            try {
+                const loadData = await si.currentLoad();
+                cpuLoadPercentage = Number(loadData.currentLoad.toFixed(2)) + "%";
+            } catch {
+                // fallback
+            }
+
+            const totalRamGB = Number((os.totalmem() / (1024 ** 3)).toFixed(2));
+            const freeRamGB = Number((os.freemem() / (1024 ** 3)).toFixed(2));
+
+            const overview = {
+                platform: os.platform(),
+                type: os.type(),
+                release: os.release(),
+                arch: os.arch(),
+                cpuModel: cpus.length > 0 ? cpus[0].model : "Unknown",
+                cpuCores: cpus.length,
+                cpuLoadPercentage,
+                totalRamGB,
+                freeRamGB,
+                hostname: os.hostname(),
+                username: os.userInfo().username,
+                uptimeSeconds,
+                uptimeFormatted
+            };
+
+            return {
+                contents: [
+                    {
+                        uri: uri.href,
+                        mimeType: "application/json",
+                        text: JSON.stringify(overview, null, 2)
+                    }
+                ]
+            };
+        }
+    );
+}
