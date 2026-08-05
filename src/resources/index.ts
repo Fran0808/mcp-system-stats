@@ -246,11 +246,11 @@ export function registerAllResources(server: McpServer) {
             else if (cpuLoad >= 75 || ramLoad >= 75) status = "WARNING";
 
             const markdown = [
-                `# 🖥️ System Live Stats Dashboard`,
+                `# System Live Stats Dashboard`,
                 ``,
                 `**Status:** \`${status}\` | **Uptime:** \`${uptimeFormatted}\` | **Hostname:** \`${os.hostname()}\``,
                 ``,
-                `## ⚙️ Operating System & Hardware`,
+                `## Operating System & Hardware`,
                 `- **OS Platform:** ${os.platform()} (${os.type()} ${os.release()} ${os.arch()})`,
                 `- **CPU Model:** ${cpus.length > 0 ? cpus[0].model : "Unknown"} (${cpus.length} cores)`,
                 `- **CPU Load:** \`${cpuLoad}%\``,

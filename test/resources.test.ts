@@ -105,7 +105,7 @@ describe("MCP Resources", () => {
         const content = res.contents[0];
         expect(content.uri).toBe("system://live-stats");
         expect(content.mimeType).toBe("text/markdown");
-        expect(content.text).toContain("# 🖥️ System Live Stats Dashboard");
+        expect(content.text).toContain("# System Live Stats Dashboard");
         expect(content.text).toContain("Status:");
 
         await client.close();
