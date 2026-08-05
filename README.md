@@ -134,6 +134,19 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ---
 
+## Available MCP Resources
+
+MCP Resources allow LLM clients (Cursor, Claude Desktop, Windsurf, VS Code Copilot) to directly read or attach live system metrics as context (`system://...`).
+
+| Resource URI | Resource Name | MIME Type | Description |
+|---|---|---|---|
+| `system://overview` | `system-overview` | `application/json` | Real-time summary of OS platform, CPU model, core counts, RAM, uptime, and identity. |
+| `system://health` | `system-health` | `application/json` | Real-time diagnostic health check status (`HEALTHY`, `WARNING`, `CRITICAL`) and alerts. |
+| `system://hardware` | `system-hardware` | `application/json` | Complete physical hardware specs (Motherboard, BIOS, RAM sticks layout, SSD/HDDs, GPUs). |
+| `system://live-stats` | `system-live-stats` | `text/markdown` | Formatted Markdown dashboard ready for direct LLM context injection (`@system://live-stats`). |
+
+---
+
 ## Sample Tool Outputs
 
 ### `get_cpu_stats`
