@@ -45,8 +45,13 @@ describe("MCP Resources", () => {
         const content = res.contents[0];
         expect(content.uri).toBe("system://overview");
         expect(content.mimeType).toBe("application/json");
+        expect("text" in content).toBe(true);
 
-        const data = JSON.parse(content.text as string);
+        if (!("text" in content)) {
+            throw new Error("Expected text resource content");
+        }
+
+        const data = JSON.parse(content.text);
         expect(data.platform).toBeDefined();
         expect(data.cpuModel).toBeDefined();
         expect(data.totalRamGB).toBeGreaterThan(0);
@@ -65,8 +70,13 @@ describe("MCP Resources", () => {
         const content = res.contents[0];
         expect(content.uri).toBe("system://health");
         expect(content.mimeType).toBe("application/json");
+        expect("text" in content).toBe(true);
 
-        const data = JSON.parse(content.text as string);
+        if (!("text" in content)) {
+            throw new Error("Expected text resource content");
+        }
+
+        const data = JSON.parse(content.text);
         expect(["HEALTHY", "WARNING", "CRITICAL"]).toContain(data.status);
         expect(data.cpuLoadPercentage).toBeDefined();
         expect(data.ramLoadPercentage).toBeDefined();
@@ -85,8 +95,13 @@ describe("MCP Resources", () => {
         const content = res.contents[0];
         expect(content.uri).toBe("system://hardware");
         expect(content.mimeType).toBe("application/json");
+        expect("text" in content).toBe(true);
 
-        const data = JSON.parse(content.text as string);
+        if (!("text" in content)) {
+            throw new Error("Expected text resource content");
+        }
+
+        const data = JSON.parse(content.text);
         expect(data.motherboard).toBeDefined();
         expect(data.ram).toBeDefined();
         expect(data.storage).toBeDefined();
@@ -105,6 +120,12 @@ describe("MCP Resources", () => {
         const content = res.contents[0];
         expect(content.uri).toBe("system://live-stats");
         expect(content.mimeType).toBe("text/markdown");
+        expect("text" in content).toBe(true);
+
+        if (!("text" in content)) {
+            throw new Error("Expected text resource content");
+        }
+
         expect(content.text).toContain("# System Live Stats Dashboard");
         expect(content.text).toContain("Status:");
 
