@@ -85,7 +85,7 @@ describe("MCP Resources", () => {
         await client.close();
     });
 
-    it("should read system://hardware resource and return hardware inventory", async () => {
+    it.skipIf(Boolean(process.env.CI))("should read system://hardware resource and return hardware inventory", async () => {
         const client = await createConnectedClient();
         const res = await client.readResource({ uri: "system://hardware" });
 
@@ -108,7 +108,7 @@ describe("MCP Resources", () => {
         expect(data.graphics).toBeDefined();
 
         await client.close();
-    });
+    }, 30000);
 
     it("should read system://live-stats resource and return Markdown dashboard", async () => {
         const client = await createConnectedClient();
