@@ -71,4 +71,24 @@ describe("MCP Resources", () => {
 
         await client.close();
     });
+
+    it("should read system://hardware resource and return hardware inventory", async () => {
+        const client = await createConnectedClient();
+        const res = await client.readResource({ uri: "system://hardware" });
+
+        expect(res.contents).toBeDefined();
+        expect(res.contents.length).toBeGreaterThan(0);
+
+        const content = res.contents[0];
+        expect(content.uri).toBe("system://hardware");
+        expect(content.mimeType).toBe("application/json");
+
+        const data = JSON.parse(content.text as string);
+        expect(data.motherboard).toBeDefined();
+        expect(data.ram).toBeDefined();
+        expect(data.storage).toBeDefined();
+        expect(data.graphics).toBeDefined();
+
+        await client.close();
+    });
 });

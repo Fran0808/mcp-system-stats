@@ -123,4 +123,90 @@ export function registerAllResources(server: McpServer) {
             };
         }
     );
+
+    server.registerResource(
+        "system-hardware",
+        "system://hardware",
+        {
+            description: "Detailed hardware specs inventory including motherboard, BIOS, physical RAM sticks layout, SSD/HDD storage drives, and GPU controllers.",
+            mimeType: "application/json"
+        },
+        async (uri) => {
+            const [baseboard, bios, memLayout, diskLayout, systemData, graphicsData] = await Promise.all([
+                si.baseboard(),
+                si.bios(),
+                si.memLayout(),
+                si.diskLayout(),
+                si.system(),
+                si.graphics()
+            ]);
+
+            const motherboard = {
+                manufacturer: baseboard.manufacturer || "Unknown",
+                model: baseboard.model || "Unknown",
+                version: baseboard.version || "N/A",
+                bios: {
+                    vendor: bios.vendor || "Unknown",
+                    version: bios.version || "Unknown",
+                    releaseDate: bios.releaseDate || "N/A"
+                }
+            };
+
+            const systemModel = {
+                manufacturer: systemData.manufacturer || "Unknown",
+                model: systemData.model || "Unknown",
+                sku: systemData.sku || "N/A"
+            };
+
+            const ramSticks = memLayout.map((stick) => ({
+                sizeGB: Number((stick.size / (1024 ** 3)).toFixed(2)),
+                type: stick.type || "Unknown",
+                clockSpeedMHz: stick.clockSpeed || "N/A",
+                manufacturer: stick.manufacturer || "Unknown",
+                partNum: stick.partNum ? stick.partNum.trim() : "N/A"
+            }));
+
+            const storageDrives = diskLayout.map((disk) => ({
+                device: disk.device || "Unknown",
+                name: disk.name || "Unknown",
+                vendor: disk.vendor || "Unknown",
+                sizeGB: Number((disk.size / (1024 ** 3)).toFixed(2)),
+                type: disk.type || "Unknown",
+                interfaceType: disk.interfaceType || "N/A"
+            }));
+
+            const gpus = graphicsData.controllers.map((gpu) => ({
+                model: gpu.model || "Unknown",
+                vendor: gpu.vendor || "Unknown",
+                vramMB: gpu.vram !== null && gpu.vram !== undefined ? gpu.vram : "N/A"
+            }));
+
+            const hardwareInventory = {
+                systemModel,
+                motherboard,
+                ram: {
+                    totalSticks: ramSticks.length,
+                    sticks: ramSticks
+                },
+                storage: {
+                    totalDrives: storageDrives.length,
+                    drives: storageDrives
+                },
+                graphics: {
+                    totalGPUs: gpus.length,
+                    gpus
+                }
+            };
+
+            return {
+                contents: [
+                    {
+                        uri: uri.href,
+                        mimeType: "application/json",
+                        text: JSON.stringify(hardwareInventory, null, 2)
+                    }
+                ]
+            };
+        }
+    );
 }
