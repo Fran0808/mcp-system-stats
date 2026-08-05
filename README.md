@@ -21,38 +21,28 @@ This MCP Server works with any client supporting the Model Context Protocol:
 
 ---
 
-## Quick Start
+## Quick Start & Setup
 
-### 1. Install
+### Step 1: Choose How You Want to Run It
 
-```bash
-# Windows / macOS / Linux
-npm i -g @fran0808/system-stats
-```
+You have two simple ways to use this MCP server:
 
-### 2. Configure your agent(s)
+* **Option A: Instant Run via `npx` (Recommended - No installation required)**  
+  Your AI assistant will automatically fetch and run the latest version on demand without cluttering your system.
 
-```bash
-# Run via npx
-npx -y @fran0808/system-stats
-```
-
-### 3. Use it
-
-
-```text
-get_system_overview   # See system, kernel and OS summary
-get_cpu_stats         # Check CPU load, per-core stats and temperature
-get_top_processes     # Find heavy apps grouped like Task Manager
-get_network_speed     # Measure real-time download and upload speeds
-```
+* **Option B: Permanent Global Installation via `npm`**  
+  If you prefer downloading and saving the package permanently on your machine, run this command in your terminal:
+  ```bash
+  npm install -g @fran0808/system-stats
+  ```
 
 ---
 
-## MCP Client Quick Setup
+### Step 2: Add the Configuration to Your AI Assistant
 
-### Cursor
+Open the configuration file for your AI application (Cursor, Claude Desktop, Windsurf, or VS Code) and add the JSON block below:
 
+#### 🔹 Cursor
 Add to `.cursor/mcp.json`:
 
 ```json
@@ -65,9 +55,9 @@ Add to `.cursor/mcp.json`:
   }
 }
 ```
+*(If you installed globally via Option B, change `"command"` to `"system-stats"` and remove `"args"`).*
 
-### Claude Desktop
-
+#### 🔹 Claude Desktop
 Add to `claude_desktop_config.json`:
 
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
@@ -85,8 +75,7 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-### Windsurf
-
+#### 🔹 Windsurf
 Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ```json
