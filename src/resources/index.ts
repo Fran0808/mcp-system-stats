@@ -209,4 +209,66 @@ export function registerAllResources(server: McpServer) {
             };
         }
     );
+
+    server.registerResource(
+        "system-live-stats",
+        "system://live-stats",
+        {
+            description: "Live system dashboard formatted in Markdown for direct LLM context injection.",
+            mimeType: "text/markdown"
+        },
+        async (uri) => {
+            const cpus = os.cpus();
+            const uptimeSeconds = Math.floor(os.uptime());
+            const days = Math.floor(uptimeSeconds / 86400);
+            const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+            const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+            const uptimeFormatted = `${days}d ${hours}h ${minutes}m`;
+
+            let cpuLoad = 0;
+            try {
+                const loadData = await si.currentLoad();
+                cpuLoad = Number(loadData.currentLoad.toFixed(2));
+            } catch {
+                // fallback
+            }
+
+            const totalRam = os.totalmem();
+            const freeRam = os.freemem();
+            const usedRam = totalRam - freeRam;
+            const ramLoad = Number(((usedRam / totalRam) * 100).toFixed(2));
+            const totalRamGB = (totalRam / (1024 ** 3)).toFixed(2);
+            const freeRamGB = (freeRam / (1024 ** 3)).toFixed(2);
+            const usedRamGB = (usedRam / (1024 ** 3)).toFixed(2);
+
+            let status: "HEALTHY" | "WARNING" | "CRITICAL" = "HEALTHY";
+            if (cpuLoad >= 90 || ramLoad >= 90) status = "CRITICAL";
+            else if (cpuLoad >= 75 || ramLoad >= 75) status = "WARNING";
+
+            const markdown = [
+                `# 🖥️ System Live Stats Dashboard`,
+                ``,
+                `**Status:** \`${status}\` | **Uptime:** \`${uptimeFormatted}\` | **Hostname:** \`${os.hostname()}\``,
+                ``,
+                `## ⚙️ Operating System & Hardware`,
+                `- **OS Platform:** ${os.platform()} (${os.type()} ${os.release()} ${os.arch()})`,
+                `- **CPU Model:** ${cpus.length > 0 ? cpus[0].model : "Unknown"} (${cpus.length} cores)`,
+                `- **CPU Load:** \`${cpuLoad}%\``,
+                `- **RAM Memory:** \`${usedRamGB} GB / ${totalRamGB} GB\` used (\`${ramLoad}%\` load, \`${freeRamGB} GB\` free)`,
+                ``,
+                `---`,
+                `*Report generated live by @fran0808/system-stats MCP Server.*`
+            ].join("\n");
+
+            return {
+                contents: [
+                    {
+                        uri: uri.href,
+                        mimeType: "text/markdown",
+                        text: markdown
+                    }
+                ]
+            };
+        }
+    );
 }

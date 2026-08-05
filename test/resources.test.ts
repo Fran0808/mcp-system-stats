@@ -19,15 +19,18 @@ async function createConnectedClient() {
 }
 
 describe("MCP Resources", () => {
-    it("should list system://overview resource", async () => {
+    it("should list all 4 system resources", async () => {
         const client = await createConnectedClient();
         const resourcesList = await client.listResources();
 
         expect(resourcesList.resources).toBeDefined();
-        const overviewRes = resourcesList.resources.find(r => r.uri === "system://overview");
-        expect(overviewRes).toBeDefined();
-        expect(overviewRes?.name).toBe("system-overview");
-        expect(overviewRes?.mimeType).toBe("application/json");
+        expect(resourcesList.resources.length).toBe(4);
+
+        const uris = resourcesList.resources.map(r => r.uri);
+        expect(uris).toContain("system://overview");
+        expect(uris).toContain("system://health");
+        expect(uris).toContain("system://hardware");
+        expect(uris).toContain("system://live-stats");
 
         await client.close();
     });
@@ -88,6 +91,22 @@ describe("MCP Resources", () => {
         expect(data.ram).toBeDefined();
         expect(data.storage).toBeDefined();
         expect(data.graphics).toBeDefined();
+
+        await client.close();
+    });
+
+    it("should read system://live-stats resource and return Markdown dashboard", async () => {
+        const client = await createConnectedClient();
+        const res = await client.readResource({ uri: "system://live-stats" });
+
+        expect(res.contents).toBeDefined();
+        expect(res.contents.length).toBeGreaterThan(0);
+
+        const content = res.contents[0];
+        expect(content.uri).toBe("system://live-stats");
+        expect(content.mimeType).toBe("text/markdown");
+        expect(content.text).toContain("# 🖥️ System Live Stats Dashboard");
+        expect(content.text).toContain("Status:");
 
         await client.close();
     });
