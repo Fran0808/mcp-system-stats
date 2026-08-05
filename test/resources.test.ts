@@ -51,4 +51,24 @@ describe("MCP Resources", () => {
 
         await client.close();
     });
+
+    it("should read system://health resource and return diagnostic report", async () => {
+        const client = await createConnectedClient();
+        const res = await client.readResource({ uri: "system://health" });
+
+        expect(res.contents).toBeDefined();
+        expect(res.contents.length).toBeGreaterThan(0);
+
+        const content = res.contents[0];
+        expect(content.uri).toBe("system://health");
+        expect(content.mimeType).toBe("application/json");
+
+        const data = JSON.parse(content.text as string);
+        expect(["HEALTHY", "WARNING", "CRITICAL"]).toContain(data.status);
+        expect(data.cpuLoadPercentage).toBeDefined();
+        expect(data.ramLoadPercentage).toBeDefined();
+        expect(Array.isArray(data.alerts)).toBe(true);
+
+        await client.close();
+    });
 });
