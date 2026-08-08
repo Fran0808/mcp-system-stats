@@ -1,6 +1,6 @@
 {
   "name": "@fran0808/system-stats",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Model Context Protocol (MCP) server for local system statistics, CPU, RAM, Disk, GPU, and process monitoring.",
   "type": "module",
   "main": "build/index.js",
