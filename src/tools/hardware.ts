@@ -1,7 +1,177 @@
 import type { McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
 import si from "systeminformation";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+
+const execAsync = promisify(exec);
 
 export function registerHardwareTools(server: McpServer) {
+    server.registerTool(
+        "get_gpu_processes",
+        {
+            description: "Use this tool whenever the user asks about GPU VRAM usage per process, which applications or AI models (Ollama, PyTorch, Stable Diffusion, Chrome) are consuming graphics memory, or how much VRAM headroom/margin is remaining.",
+            inputSchema: z.object({
+                limit: z.number().min(1).max(20).optional().default(10)
+            })
+        },
+        async ({ limit }) => {
+            try {
+                let nvidiaGpuData: { name: string; totalMB: number; usedMB: number; freeMB: number } | null = null;
+                try {
+                    const { stdout: gpuSummary } = await execAsync(
+                        "nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free --format=csv,noheader,nounits"
+                    );
+                    const parts = gpuSummary.trim().split(",").map((s) => s.trim());
+                    if (parts.length >= 4) {
+                        nvidiaGpuData = {
+                            name: parts[0],
+                            totalMB: parseFloat(parts[1]),
+                            usedMB: parseFloat(parts[2]),
+                            freeMB: parseFloat(parts[3])
+                        };
+                    }
+                } catch {
+                    // nvidia-smi not available or no NVIDIA GPU
+                }
+
+                const processMap = new Map<number, { pid: number; vramUsedBytes: number; sharedVramBytes: number }>();
+
+                if (process.platform === "win32") {
+                    try {
+                        const { stdout: psOutput } = await execAsync(
+                            `powershell -NoProfile -Command "Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUProcessMemory | Where-Object DedicatedUsage -gt 1048576 | Select-Object Name, DedicatedUsage, SharedUsage | ConvertTo-Json"`
+                        );
+
+                        if (psOutput.trim()) {
+                            const items = JSON.parse(psOutput.trim());
+                            const arrayItems = Array.isArray(items) ? items : [items];
+
+                            for (const item of arrayItems) {
+                                if (!item || !item.Name || typeof item.DedicatedUsage !== "number") continue;
+                                const pidMatch = item.Name.match(/pid_(\d+)_/i);
+                                if (!pidMatch) continue;
+
+                                const pid = parseInt(pidMatch[1], 10);
+                                if (isNaN(pid) || pid <= 0) continue;
+
+                                const dedicatedBytes = item.DedicatedUsage;
+                                const sharedBytes = typeof item.SharedUsage === "number" ? item.SharedUsage : 0;
+                                const existing = processMap.get(pid);
+                                if (existing) {
+                                    existing.vramUsedBytes = Math.max(existing.vramUsedBytes, dedicatedBytes);
+                                    existing.sharedVramBytes = Math.max(existing.sharedVramBytes, sharedBytes);
+                                } else {
+                                    processMap.set(pid, { pid, vramUsedBytes: dedicatedBytes, sharedVramBytes: sharedBytes });
+                                }
+                            }
+                        }
+                    } catch {
+                        // ignore PowerShell error
+                    }
+                }
+                
+                if (processMap.size === 0) {
+                    try {
+                        const { stdout: computeApps } = await execAsync(
+                            "nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader,nounits"
+                        );
+                        const lines = computeApps.trim().split("\n");
+                        for (const line of lines) {
+                            if (!line.trim()) continue;
+                            const cols = line.split(",").map((c) => c.trim());
+                            if (cols.length >= 2) {
+                                const pid = parseInt(cols[0], 10);
+                                const vramUsedMB = cols[2] && cols[2] !== "[N/A]" ? parseFloat(cols[2]) : 0;
+                                if (!isNaN(pid) && vramUsedMB > 0) {
+                                    processMap.set(pid, { pid, vramUsedBytes: vramUsedMB * 1024 * 1024, sharedVramBytes: 0 });
+                                }
+                            }
+                        }
+                    } catch {
+                        // ignore nvidia-smi compute-apps fallback
+                    }
+                }
+
+                let procNameMap = new Map<number, string>();
+                try {
+                    const systemProcData = await si.processes();
+                    procNameMap = new Map(systemProcData.list.map((p) => [p.pid, p.name]));
+                } catch {
+                    // ignore systeminformation error
+                }
+
+                const processList = Array.from(processMap.values()).map((p) => {
+                    const resolvedName = procNameMap.get(p.pid) || `Process [PID ${p.pid}]`;
+                    const vramMB = Number((p.vramUsedBytes / (1024 * 1024)).toFixed(2));
+                    const vramGB = Number((p.vramUsedBytes / (1024 ** 3)).toFixed(2));
+                    const sharedMB = Number((p.sharedVramBytes / (1024 * 1024)).toFixed(2));
+                    return {
+                        pid: p.pid,
+                        name: resolvedName,
+                        vramUsedMB: vramMB,
+                        vramUsedGB: vramGB,
+                        sharedVramMB: sharedMB
+                    };
+                });
+
+                // Sort descending by VRAM used
+                processList.sort((a, b) => b.vramUsedMB - a.vramUsedMB);
+
+                let gpuModel = nvidiaGpuData?.name || "Unknown GPU";
+                let totalVramMB = nvidiaGpuData?.totalMB || 0;
+                let usedVramMB = nvidiaGpuData?.usedMB || 0;
+                let freeVramMB = nvidiaGpuData?.freeMB || 0;
+
+                if (!nvidiaGpuData) {
+                    const graphicsData = await si.graphics();
+                    const primaryGpu = graphicsData.controllers.length > 0 ? graphicsData.controllers[0] : null;
+                    gpuModel = primaryGpu?.model || "Unknown GPU";
+                    totalVramMB = primaryGpu?.vram ?? 0;
+                }
+
+                const freeMarginGB = Number((freeVramMB / 1024).toFixed(2));
+                const totalVramGB = Number((totalVramMB / 1024).toFixed(2));
+                const usedVramGB = Number((usedVramMB / 1024).toFixed(2));
+                const usagePercentage = totalVramMB > 0 ? Number(((usedVramMB / totalVramMB) * 100).toFixed(2)) + "%" : "N/A";
+
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify(
+                                {
+                                    gpuModel,
+                                    totalVramMB,
+                                    totalVramGB,
+                                    usedVramMB,
+                                    usedVramGB,
+                                    freeVramMB,
+                                    remainingMarginGB: freeMarginGB,
+                                    vramUsagePercentage: usagePercentage,
+                                    activeGpuProcessCount: processList.length,
+                                    processes: processList.slice(0, limit)
+                                },
+                                null,
+                                2
+                            )
+                        }
+                    ]
+                };
+            } catch (err: any) {
+                return {
+                    isError: true,
+                    content: [
+                        {
+                            type: "text",
+                            text: `Error retrieving GPU processes: ${err.message}`
+                        }
+                    ]
+                };
+            }
+        }
+    );
+
     server.registerTool(
         "get_gpu_stats",
         {

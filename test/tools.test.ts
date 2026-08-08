@@ -44,10 +44,11 @@ describe("Tool Registration", () => {
         "get_cpu_stats",
         "search_process",
         "get_hardware_specs",
-        "get_usb_devices"
+        "get_usb_devices",
+        "get_gpu_processes"
     ];
 
-    it("should register all 13 tools", async () => {
+    it("should register all 14 tools", async () => {
         const client = await createConnectedClient();
         const toolsResult = await client.listTools();
         const toolNames = toolsResult.tools.map((t) => t.name);
@@ -329,6 +330,16 @@ describe("Hardware Tools", () => {
 
         if (gpu.displays.length > 0) {
             expect(gpu.displays[0].currentResolution).toBeDefined();
+        }
+    });
+
+    it("get_gpu_processes should return VRAM process list or GPU stats", async () => {
+        const client = await createConnectedClient();
+        const gpuProc = await callToolAndParse(client, "get_gpu_processes");
+
+        expect(gpuProc.gpuModel).toBeDefined();
+        if (gpuProc.totalVramMB !== undefined) {
+            expect(typeof gpuProc.totalVramMB === "number" || typeof gpuProc.totalVramMB === "string").toBe(true);
         }
     });
 
