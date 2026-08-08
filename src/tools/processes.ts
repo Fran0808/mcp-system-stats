@@ -9,7 +9,7 @@ export function registerProcessTools(server: McpServer) {
             description: "Use this tool whenever the user asks about top processes, heavy applications, or which programs are consuming the most CPU or RAM memory on their local computer.",
             inputSchema: z.object({
                 sortBy: z.enum(["cpu", "memory"]).optional().default("cpu"),
-                limit: z.number().min(1).max(20).optional().default(5),
+                limit: z.number().min(1).max(50).optional().default(5),
                 groupByApp: z.boolean().optional().default(true)
             })
         },

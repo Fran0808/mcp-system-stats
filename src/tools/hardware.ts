@@ -12,7 +12,7 @@ export function registerHardwareTools(server: McpServer) {
         {
             description: "Use this tool whenever the user asks about GPU VRAM usage per process, which applications or AI models (Ollama, PyTorch, Stable Diffusion, Chrome) are consuming graphics memory, or how much VRAM headroom/margin is remaining.",
             inputSchema: z.object({
-                limit: z.number().min(1).max(20).optional().default(10)
+                limit: z.number().min(1).max(50).optional().default(15)
             })
         },
         async ({ limit }) => {
