@@ -120,6 +120,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 | `get_system_health` | Comprehensive health check status (`HEALTHY`, `WARNING`, `CRITICAL`). | None |
 | `get_hardware_specs` | Detailed physical hardware specs (Motherboard, BIOS, RAM sticks layout, physical SSD/HDD models). | None |
 | `get_usb_devices` | All connected USB peripherals categorized by type (keyboard, mouse, webcam, storage, audio, hub). | None |
+| `get_gpu_processes` | Per-process VRAM utilization, active GPU applications, and remaining VRAM margin (headroom). | `limit`: `1..20` |
 
 ---
 
