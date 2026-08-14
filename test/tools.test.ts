@@ -45,10 +45,11 @@ describe("Tool Registration", () => {
         "search_process",
         "get_hardware_specs",
         "get_usb_devices",
-        "get_gpu_processes"
+        "get_gpu_processes",
+        "get_services"
     ];
 
-    it("should register all 14 tools", async () => {
+    it("should register all 15 tools", async () => {
         const client = await createConnectedClient();
         const toolsResult = await client.listTools();
         const toolNames = toolsResult.tools.map((t) => t.name);
@@ -309,6 +310,37 @@ describe("Process Tools", () => {
         expect(result.query).toBe("zzz_nonexistent_process_xyz");
         expect(result.isRunning).toBe(false);
         expect(result.message).toContain("No active processes found");
+    });
+
+    it("get_services should return system services with status and start mode", async () => {
+        const client = await createConnectedClient();
+        const res = await callToolAndParse(client, "get_services", { limit: 5 });
+
+        expect(typeof res.totalServicesSystem).toBe("number");
+        expect(res.totalServicesSystem).toBeGreaterThan(0);
+        expect(typeof res.totalRunning).toBe("number");
+        expect(typeof res.totalStopped).toBe("number");
+        expect(Array.isArray(res.services)).toBe(true);
+
+        if (res.services.length > 0) {
+            const s = res.services[0];
+            expect(s.name).toBeDefined();
+            expect(s.status).toMatch(/^(Running|Stopped)$/);
+            expect(s.startMode).toBeDefined();
+        }
+    });
+
+    it("get_services should support status and search filters", async () => {
+        const client = await createConnectedClient();
+        const res = await callToolAndParse(client, "get_services", {
+            status: "running",
+            limit: 3
+        });
+
+        expect(Array.isArray(res.services)).toBe(true);
+        for (const s of res.services) {
+            expect(s.status).toBe("Running");
+        }
     });
 });
 
