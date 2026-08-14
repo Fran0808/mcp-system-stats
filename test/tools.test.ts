@@ -46,10 +46,11 @@ describe("Tool Registration", () => {
         "get_hardware_specs",
         "get_usb_devices",
         "get_gpu_processes",
-        "get_services"
+        "get_services",
+        "get_startup_programs"
     ];
 
-    it("should register all 15 tools", async () => {
+    it("should register all 16 tools", async () => {
         const client = await createConnectedClient();
         const toolsResult = await client.listTools();
         const toolNames = toolsResult.tools.map((t) => t.name);
@@ -418,3 +419,33 @@ describe("Hardware Tools", () => {
         expect(usb.removable.count + usb.permanent.count).toBe(usb.totalConnected);
     });
 });
+
+
+describe("Software Tools", () => {
+    it.skipIf(Boolean(process.env.CI))("get_startup_programs should return startup applications", async () => {
+        const client = await createConnectedClient();
+        const res = await callToolAndParse(client, "get_startup_programs", { limit: 5 });
+
+        expect(typeof res.totalStartupPrograms).toBe("number");
+        expect(Array.isArray(res.programs)).toBe(true);
+
+        if (res.programs.length > 0) {
+            const p = res.programs[0];
+            expect(p.name).toBeDefined();
+            expect(p.command).toBeDefined();
+            expect(p.location).toBeDefined();
+        }
+    });
+
+    it.skipIf(Boolean(process.env.CI))("get_startup_programs should support search filter", async () => {
+        const client = await createConnectedClient();
+        const res = await callToolAndParse(client, "get_startup_programs", {
+            search: "e",
+            limit: 3
+        });
+
+        expect(Array.isArray(res.programs)).toBe(true);
+        expect(res.programs.length).toBeLessThanOrEqual(3);
+    });
+});
+

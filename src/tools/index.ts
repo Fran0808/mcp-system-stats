@@ -4,6 +4,7 @@ import { registerPerformanceTools } from "./performance.js";
 import { registerNetworkTools } from "./network.js";
 import { registerProcessTools } from "./processes.js";
 import { registerHardwareTools } from "./hardware.js";
+import { registerSoftwareTools } from "./software.js";
 
 export function registerAllTools(server: McpServer) {
     registerSystemTools(server);
@@ -11,4 +12,5 @@ export function registerAllTools(server: McpServer) {
     registerNetworkTools(server);
     registerProcessTools(server);
     registerHardwareTools(server);
+    registerSoftwareTools(server);
 }
