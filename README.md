@@ -111,7 +111,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 | `get_cpu_stats` | CPU specifications, speed (GHz), per-core load, and temperature. | None |
 | `get_memory_status` | Total, free, and used RAM with utilization percentage. | `unit`: `"GB"` \| `"MB"` |
 | `get_disk_space` | Disk capacity, free storage, used space, and usage percentage. | `path`: string (default `"C:\\"` or `"/"`) |
-| `get_top_processes` | Top resource-heavy applications grouped by name or PID. | `sortBy`: `"memory"` \| `"cpu"`, `limit`: `1..20`, `groupByApp`: `boolean` |
+| `get_top_processes` | Top resource-heavy applications grouped by name or PID. | `sortBy`: `"memory"` \| `"cpu"`, `limit`: `1..50`, `groupByApp`: `boolean` |
 | `search_process` | Search if a specific app (`chrome`, `node`, `docker`) is running. | `name`: string |
 | `get_network_info` | Network interfaces, IPv4/IPv6 addresses, MAC, and internal flags. | None |
 | `get_network_speed` | Real-time download/upload speed (KB/s and Mbps) per interface. | None |
@@ -120,7 +120,10 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 | `get_system_health` | Comprehensive health check status (`HEALTHY`, `WARNING`, `CRITICAL`). | None |
 | `get_hardware_specs` | Detailed physical hardware specs (Motherboard, BIOS, RAM sticks layout, physical SSD/HDD models). | None |
 | `get_usb_devices` | All connected USB peripherals categorized by type (keyboard, mouse, webcam, storage, audio, hub). | None |
-| `get_gpu_processes` | Per-process VRAM utilization, active GPU applications, and remaining VRAM margin (headroom). | `limit`: `1..20` |
+| `get_gpu_processes` | Per-process VRAM utilization, active GPU applications, and remaining VRAM margin (headroom). | `limit`: `1..50` |
+| `get_services` | Background system services, execution status (`Running`/`Stopped`), and start mode (`Auto`/`Manual`/`Disabled`). | `status`: `"all"` \| `"running"` \| `"stopped"`, `search`: string, `limit`: `1..100` |
+| `get_startup_programs` | Programs configured to launch on system startup (Task Manager Startup tab, Registry Run, Startup Folder). | `search`: string, `limit`: `1..50` |
+| `get_installed_programs` | Installed software applications catalog with version, publisher, install date, and install directory. | `search`: string, `sortBy`: `"name"` \| `"installDate"`, `limit`: `1..100` |
 
 ---
 
