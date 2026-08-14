@@ -47,10 +47,11 @@ describe("Tool Registration", () => {
         "get_usb_devices",
         "get_gpu_processes",
         "get_services",
-        "get_startup_programs"
+        "get_startup_programs",
+        "get_installed_programs"
     ];
 
-    it("should register all 16 tools", async () => {
+    it("should register all 17 tools", async () => {
         const client = await createConnectedClient();
         const toolsResult = await client.listTools();
         const toolNames = toolsResult.tools.map((t) => t.name);
@@ -447,5 +448,33 @@ describe("Software Tools", () => {
         expect(Array.isArray(res.programs)).toBe(true);
         expect(res.programs.length).toBeLessThanOrEqual(3);
     });
+
+    it.skipIf(Boolean(process.env.CI))("get_installed_programs should return installed applications", async () => {
+        const client = await createConnectedClient();
+        const res = await callToolAndParse(client, "get_installed_programs", { limit: 5 });
+
+        expect(typeof res.totalInstalledPrograms).toBe("number");
+        expect(Array.isArray(res.programs)).toBe(true);
+
+        if (res.programs.length > 0) {
+            const app = res.programs[0];
+            expect(app.name).toBeDefined();
+            expect(app.version).toBeDefined();
+            expect(app.publisher).toBeDefined();
+        }
+    });
+
+    it.skipIf(Boolean(process.env.CI))("get_installed_programs should support search filter and sorting", async () => {
+        const client = await createConnectedClient();
+        const res = await callToolAndParse(client, "get_installed_programs", {
+            search: "a",
+            sortBy: "name",
+            limit: 3
+        });
+
+        expect(Array.isArray(res.programs)).toBe(true);
+        expect(res.programs.length).toBeLessThanOrEqual(3);
+    });
 });
+
 
