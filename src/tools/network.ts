@@ -6,7 +6,7 @@ export function registerNetworkTools(server: McpServer) {
     server.registerTool(
         "get_network_info",
         {
-            description: "Use this tool whenever the user asks about their local computer network interfaces, IP addresses (IPv4/IPv6), MAC address, or network connectivity details."
+            description: "Inspect local network interface cards (NICs), IP routing addresses, and network topology. Groups interfaces into active external network adapters (Ethernet, Wi-Fi, virtual bridges) and internal loopback interfaces, returning IPv4/IPv6 addresses, subnet families, hardware MAC addresses, and scope flags. Use to determine host IP addresses, network interface configuration, and local connectivity."
         },
         async () => {
             try {
@@ -58,7 +58,7 @@ export function registerNetworkTools(server: McpServer) {
     server.registerTool(
         "get_network_speed",
         {
-            description: "Use this tool whenever the user asks about their current internet speed, network bandwidth usage, download or upload speed, or which network interface is consuming bandwidth."
+            description: "Perform real-time network throughput and bandwidth telemetry by sampling transfer rates over a 1-second interval. Returns per-interface download and upload transfer speeds in both Kilobytes/sec (KB/s) and Megabits/sec (Mbps), cumulative received and transmitted data in Megabytes (MB), and identifies the busiest network interface. Use to diagnose network congestion, active bandwidth hogging, or measure current transfer speeds."
         },
         async () => {
             try {

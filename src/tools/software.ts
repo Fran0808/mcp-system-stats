@@ -9,10 +9,10 @@ export function registerSoftwareTools(server: McpServer) {
     server.registerTool(
         "get_startup_programs",
         {
-            description: "Use this tool whenever the user asks about startup applications, programs that launch on boot, auto-start software, or wants to check the Task Manager Startup tab.",
+            description: "Inspect all programs, background updaters, and helper agents configured to execute automatically when the operating system starts (equivalent to Task Manager's 'Startup' tab). Returns program name, full command-line execution string with parameters, registration location (Registry User Run, Registry System Run, or Startup Folder), and user scope. Use to audit boot impact, identify unnecessary startup bloatware, and optimize system startup times.",
             inputSchema: z.object({
-                search: z.string().optional(),
-                limit: z.number().min(1).max(50).optional().default(25)
+                search: z.string().optional().describe("Case-insensitive keyword to filter startup programs by application name or command path (e.g. 'discord', 'steam', 'updater')."),
+                limit: z.number().min(1).max(50).optional().default(25).describe("Maximum number of startup items to return (1 to 50, default: 25).")
             })
         },
         async ({ search, limit }) => {
@@ -104,11 +104,11 @@ export function registerSoftwareTools(server: McpServer) {
     server.registerTool(
         "get_installed_programs",
         {
-            description: "Use this tool whenever the user asks about installed applications, installed software, programs catalog, app versions, publisher information, installation dates, or wants to check installed packages.",
+            description: "Query the comprehensive installed software application catalog from the system registry (equivalent to Windows Settings 'Installed Apps' / Programs & Features). Returns software name, installed version string, publisher/vendor organization, formatted installation date (YYYY-MM-DD), and installation folder path. Supports keyword searching across program names and publishers, and sorting alphabetically or by installation date. Use to audit software inventory, verify installed package versions, or check recently installed applications.",
             inputSchema: z.object({
-                search: z.string().optional(),
-                sortBy: z.enum(["name", "installDate"]).optional().default("name"),
-                limit: z.number().min(1).max(100).optional().default(50)
+                search: z.string().optional().describe("Case-insensitive keyword to search installed software by application name or publisher (e.g. 'python', 'microsoft', 'adobe', 'docker')."),
+                sortBy: z.enum(["name", "installDate"]).optional().default("name").describe("Sort order for the returned software catalog: 'name' for alphabetical by app name (default) or 'installDate' for most recently installed first."),
+                limit: z.number().min(1).max(100).optional().default(50).describe("Maximum number of installed programs to return (1 to 100, default: 50).")
             })
         },
         async ({ search, sortBy, limit }) => {

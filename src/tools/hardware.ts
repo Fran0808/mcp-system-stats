@@ -10,9 +10,9 @@ export function registerHardwareTools(server: McpServer) {
     server.registerTool(
         "get_gpu_processes",
         {
-            description: "Use this tool whenever the user asks about GPU VRAM usage per process, which applications or AI models (Ollama, PyTorch, Stable Diffusion, Chrome) are consuming graphics memory, or how much VRAM headroom/margin is remaining.",
+            description: "Analyze per-process graphics memory (VRAM) utilization and evaluate GPU memory headroom. Returns GPU model, total VRAM (MB/GB), used VRAM, free VRAM, remaining VRAM margin (GB), overall VRAM usage percentage, and a ranked list of active processes using the GPU with PID, application name, dedicated VRAM (MB/GB), and shared VRAM (MB). Use to identify memory-heavy AI models (e.g. Ollama, PyTorch, Stable Diffusion, LM Studio), 3D renderers, or games, and determine if sufficient VRAM remains to load new models without out-of-memory errors.",
             inputSchema: z.object({
-                limit: z.number().min(1).max(50).optional().default(15)
+                limit: z.number().min(1).max(50).optional().default(15).describe("Maximum number of top VRAM-consuming processes to return (1 to 50, default: 15).")
             })
         },
         async ({ limit }) => {
@@ -175,7 +175,7 @@ export function registerHardwareTools(server: McpServer) {
     server.registerTool(
         "get_gpu_stats",
         {
-            description: "Use this tool whenever the user asks about their local computer graphics card (GPU), VRAM memory, GPU utilization, GPU temperature, monitors, or display setup."
+            description: "Retrieve global graphics card (GPU) telemetry and attached display configurations. Returns GPU controller specifications, vendor, model, total VRAM (MB), real-time GPU compute utilization percentage, GPU core temperature (°C), PCIe bus interface, and connected display details (resolutions, refresh rates in Hz, connection types, and primary monitor flag). Use to monitor graphics hardware health and multi-monitor setups."
         },
         async () => {
             try {
@@ -229,7 +229,7 @@ export function registerHardwareTools(server: McpServer) {
     server.registerTool(
         "get_hardware_specs",
         {
-            description: "Use this tool whenever the user asks for detailed physical hardware specifications of their PC, such as motherboard model/brand, BIOS version, physical RAM sticks/slots layout (DDR type, speed, channels), or physical SSD/HDD drive models."
+            description: "Retrieve detailed physical motherboard, firmware, memory topology, and storage hardware inventory. Returns system manufacturer and model, motherboard vendor and version, BIOS firmware version and release date, RAM memory module layout (individual stick capacities in GB, DDR types, clock speeds in MHz, manufacturers, part numbers, form factors, and total installed memory), and physical drive models (SSD/NVMe/HDD names, interface types, capacities in GB, vendors, and SMART health status). Use for hardware compatibility auditing and physical inventory inspection."
         },
         async () => {
             try {
@@ -315,7 +315,7 @@ export function registerHardwareTools(server: McpServer) {
     server.registerTool(
         "get_usb_devices",
         {
-            description: "Use this tool whenever the user asks about USB devices, peripherals, or connected hardware like keyboards, mice, webcams, microphones, external drives, headsets, hubs, DACs, or controllers connected to their computer."
+            description: "Inspect all currently attached USB peripherals, external controllers, and integrated USB devices. Categorizes devices by type (Keyboards, Mice, Cameras/Webcams, Audio Devices/DACs/Microphones, Storage/Flash Drives, Bluetooth/Wireless Adapters, Game Controllers, Hubs, Card Readers, Printers), provides a category breakdown summary, and distinguishes removable external devices from permanent internal USB buses with power draw (Watts) and vendor details. Use to verify plugged-in hardware peripherals."
         },
         async () => {
             try {

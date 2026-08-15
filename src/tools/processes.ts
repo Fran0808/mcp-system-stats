@@ -10,11 +10,11 @@ export function registerProcessTools(server: McpServer) {
     server.registerTool(
         "get_top_processes",
         {
-            description: "Use this tool whenever the user asks about top processes, heavy applications, or which programs are consuming the most CPU or RAM memory on their local computer.",
+            description: "Identify and rank resource-intensive applications and processes currently running on the local computer. Can sort by real-time CPU consumption percentage or physical RAM memory usage (MB), group multiple instances of the same application (e.g. multi-process browsers, Discord, Electron apps) into unified entries with instance counts and PID arrays, or return individual granular PID processes. Use to diagnose system slowdowns, high CPU spikes, and memory leaks.",
             inputSchema: z.object({
-                sortBy: z.enum(["cpu", "memory"]).optional().default("cpu"),
-                limit: z.number().min(1).max(50).optional().default(5),
-                groupByApp: z.boolean().optional().default(true)
+                sortBy: z.enum(["cpu", "memory"]).optional().default("cpu").describe("Metric used to sort the top processes: 'cpu' for highest processor utilization or 'memory' for highest physical RAM usage."),
+                limit: z.number().min(1).max(50).optional().default(5).describe("Number of top resource-consuming applications/processes to return (1 to 50, default: 5)."),
+                groupByApp: z.boolean().optional().default(true).describe("Whether to aggregate multiple sub-processes with the same executable name into a single combined entry (default: true). Set to false to inspect individual PIDs.")
             })
         },
         async ({ sortBy, limit, groupByApp }) => {
@@ -121,9 +121,9 @@ export function registerProcessTools(server: McpServer) {
     server.registerTool(
         "search_process",
         {
-            description: "Use this tool whenever the user asks if a specific program, application, service, or process (e.g. 'chrome', 'node', 'docker', 'vscode', 'spotify') is currently running on their local computer.",
+            description: "Search and inspect running processes by name or substring query (e.g. 'chrome', 'node', 'docker', 'python', 'ollama'). Returns whether matching processes are actively running, total count of active instances, aggregated CPU utilization percentage, aggregated physical RAM memory usage (MB), and a detailed breakdown of each individual instance with PID, process name, individual CPU %, and memory (MB). Use to verify if an application is active, hanging, or consuming excess resources.",
             inputSchema: z.object({
-                name: z.string()
+                name: z.string().describe("Process name or case-insensitive keyword to search for (e.g. 'node', 'python', 'docker', 'chrome').")
             })
         },
         async ({ name }) => {
@@ -193,11 +193,11 @@ export function registerProcessTools(server: McpServer) {
     server.registerTool(
         "get_services",
         {
-            description: "Use this tool whenever the user asks about background system services, Windows services, their status (Running/Stopped), start mode (Automatic/Manual/Disabled), or wants to search for a specific service like update, docker, sql, audio, defender, etc.",
+            description: "Query background system services, daemon processes, and Windows services. Returns total service counts, count of currently running services, count of stopped services, and a detailed list with internal service name, friendly display name, execution status ('Running' vs 'Stopped'), startup configuration mode ('Auto', 'Manual', 'Disabled'), and associated PID when running. Supports filtering by execution status and keyword search across service names and descriptions. Use to inspect service health, identify stopped essential services, or audit background daemons.",
             inputSchema: z.object({
-                status: z.enum(["all", "running", "stopped"]).optional().default("all"),
-                search: z.string().optional(),
-                limit: z.number().min(1).max(100).optional().default(30)
+                status: z.enum(["all", "running", "stopped"]).optional().default("all").describe("Filter services by execution state: 'all' for all services, 'running' for active services only, or 'stopped' for inactive services."),
+                search: z.string().optional().describe("Case-insensitive text filter to search services by internal name or display name (e.g. 'update', 'docker', 'sql', 'audio', 'defender')."),
+                limit: z.number().min(1).max(100).optional().default(30).describe("Maximum number of service entries to return (1 to 100, default: 30).")
             })
         },
         async ({ status, search, limit }) => {
