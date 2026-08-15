@@ -104,14 +104,15 @@ export function registerSoftwareTools(server: McpServer) {
     server.registerTool(
         "get_installed_programs",
         {
-            description: "Query the comprehensive installed software application catalog from the system registry (equivalent to Windows Settings 'Installed Apps' / Programs & Features). Returns software name, installed version string, publisher/vendor organization, formatted installation date (YYYY-MM-DD), and installation folder path. Supports keyword searching across program names and publishers, and sorting alphabetically or by installation date. Use to audit software inventory, verify installed package versions, or check recently installed applications.",
+            description: "Query the comprehensive installed software application catalog from the system registry (equivalent to Windows Settings 'Installed Apps' / Programs & Features). Returns software name, installed version string, publisher/vendor organization, formatted installation date (YYYY-MM-DD), and installation folder path. Supports keyword searching across program names and publishers, sorting alphabetically or by installation date, and specifying sort direction ('asc' or 'desc'). Use to audit software inventory, verify installed package versions, or check recently or oldest installed applications.",
             inputSchema: z.object({
                 search: z.string().optional().describe("Case-insensitive keyword to search installed software by application name or publisher (e.g. 'python', 'microsoft', 'adobe', 'docker')."),
-                sortBy: z.enum(["name", "installDate"]).optional().default("name").describe("Sort order for the returned software catalog: 'name' for alphabetical by app name (default) or 'installDate' for most recently installed first."),
+                sortBy: z.enum(["name", "installDate"]).optional().default("name").describe("Sort field for the returned software catalog: 'name' for app name (default) or 'installDate' for installation date."),
+                order: z.enum(["asc", "desc"]).optional().describe("Sort direction: 'asc' (ascending, e.g. oldest installed first or A-Z) or 'desc' (descending, e.g. newest installed first or Z-A). Defaults to 'desc' if sortBy is 'installDate', or 'asc' if sortBy is 'name'."),
                 limit: z.number().min(1).max(100).optional().default(50).describe("Maximum number of installed programs to return (1 to 100, default: 50).")
             })
         },
-        async ({ search, sortBy, limit }) => {
+        async ({ search, sortBy, order, limit }) => {
             try {
                 let appList: Array<{
                     name: string;
@@ -171,14 +172,20 @@ export function registerSoftwareTools(server: McpServer) {
                     );
                 }
 
+                const sortOrder = order || (sortBy === "installDate" ? "desc" : "asc");
+
                 // Sort
                 filtered.sort((a, b) => {
+                    let cmp = 0;
                     if (sortBy === "installDate") {
-                        if (a.installDate === "N/A") return 1;
-                        if (b.installDate === "N/A") return -1;
-                        return b.installDate.localeCompare(a.installDate);
+                        if (a.installDate === "N/A" && b.installDate === "N/A") cmp = 0;
+                        else if (a.installDate === "N/A") return 1;
+                        else if (b.installDate === "N/A") return -1;
+                        else cmp = a.installDate.localeCompare(b.installDate);
+                    } else {
+                        cmp = a.name.localeCompare(b.name);
                     }
-                    return a.name.localeCompare(b.name);
+                    return sortOrder === "desc" ? -cmp : cmp;
                 });
 
                 return {
@@ -188,7 +195,7 @@ export function registerSoftwareTools(server: McpServer) {
                             text: JSON.stringify(
                                 {
                                     totalInstalledPrograms: appList.length,
-                                    filterApplied: { search: search || null, sortBy },
+                                    filterApplied: { search: search || null, sortBy, order: sortOrder },
                                     returnedCount: Math.min(filtered.length, limit),
                                     programs: filtered.slice(0, limit)
                                 },
