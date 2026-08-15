@@ -104,11 +104,11 @@ export function registerSoftwareTools(server: McpServer) {
     server.registerTool(
         "get_installed_programs",
         {
-            description: "Query the comprehensive installed software application catalog from the system registry (equivalent to Windows Settings 'Installed Apps' / Programs & Features). Returns software name, installed version string, publisher/vendor organization, formatted installation date (YYYY-MM-DD), and installation folder path. Supports keyword searching across program names and publishers, sorting alphabetically or by installation date, and specifying sort direction ('asc' or 'desc'). Use to audit software inventory, verify installed package versions, or check recently or oldest installed applications.",
+            description: "Query the comprehensive installed software application catalog from the system registry (equivalent to Windows Settings 'Installed Apps' / Programs & Features). Returns software name, installed version string, publisher/vendor organization, formatted installation date (YYYY-MM-DD), estimated disk size (MB/GB), and installation folder path. Supports keyword searching across program names and publishers, sorting alphabetically, by installation date, or by disk size, and specifying sort direction ('asc' or 'desc'). Use to audit software inventory, verify installed package versions, identify space-heavy applications, or check recently or oldest installed applications.",
             inputSchema: z.object({
                 search: z.string().optional().describe("Case-insensitive keyword to search installed software by application name or publisher (e.g. 'python', 'microsoft', 'adobe', 'docker')."),
-                sortBy: z.enum(["name", "installDate"]).optional().default("name").describe("Sort field for the returned software catalog: 'name' for app name (default) or 'installDate' for installation date."),
-                order: z.enum(["asc", "desc"]).optional().describe("Sort direction: 'asc' (ascending, e.g. oldest installed first or A-Z) or 'desc' (descending, e.g. newest installed first or Z-A). Defaults to 'desc' if sortBy is 'installDate', or 'asc' if sortBy is 'name'."),
+                sortBy: z.enum(["name", "installDate", "size"]).optional().default("name").describe("Sort field for the returned software catalog: 'name' for app name (default), 'installDate' for installation date, or 'size' for estimated disk size."),
+                order: z.enum(["asc", "desc"]).optional().describe("Sort direction: 'asc' (ascending) or 'desc' (descending). Defaults to 'desc' if sortBy is 'installDate' or 'size', or 'asc' if sortBy is 'name'."),
                 limit: z.number().min(1).max(100).optional().default(50).describe("Maximum number of installed programs to return (1 to 100, default: 50).")
             })
         },
@@ -119,13 +119,15 @@ export function registerSoftwareTools(server: McpServer) {
                     version: string;
                     publisher: string;
                     installDate: string;
+                    sizeMB: number | null;
+                    sizeFormatted: string;
                     installLocation: string;
                 }> = [];
 
                 if (process.platform === "win32") {
                     try {
                         const { stdout } = await execAsync(
-                            `powershell -NoProfile -Command "Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object DisplayName | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation | ConvertTo-Json -Compress"`
+                            `powershell -NoProfile -Command "Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object DisplayName | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, EstimatedSize | ConvertTo-Json -Compress"`
                         );
 
                         if (stdout.trim()) {
@@ -149,11 +151,24 @@ export function registerSoftwareTools(server: McpServer) {
                                     }
                                 }
 
+                                let estimatedSizeMB: number | null = null;
+                                let sizeFormatted = "N/A";
+                                if (typeof item.EstimatedSize === "number" && item.EstimatedSize > 0) {
+                                    estimatedSizeMB = Math.round((item.EstimatedSize / 1024) * 100) / 100;
+                                    if (estimatedSizeMB >= 1024) {
+                                        sizeFormatted = `${(estimatedSizeMB / 1024).toFixed(2)} GB`;
+                                    } else {
+                                        sizeFormatted = `${estimatedSizeMB.toFixed(2)} MB`;
+                                    }
+                                }
+
                                 appList.push({
                                     name,
                                     version: item.DisplayVersion ? String(item.DisplayVersion).trim() : "N/A",
                                     publisher: item.Publisher ? String(item.Publisher).trim() : "Unknown",
                                     installDate: formattedDate,
+                                    sizeMB: estimatedSizeMB,
+                                    sizeFormatted,
                                     installLocation: item.InstallLocation ? String(item.InstallLocation).trim() : "N/A"
                                 });
                             }
@@ -172,7 +187,7 @@ export function registerSoftwareTools(server: McpServer) {
                     );
                 }
 
-                const sortOrder = order || (sortBy === "installDate" ? "desc" : "asc");
+                const sortOrder = order || (sortBy === "name" ? "asc" : "desc");
 
                 // Sort
                 filtered.sort((a, b) => {
@@ -182,6 +197,11 @@ export function registerSoftwareTools(server: McpServer) {
                         else if (a.installDate === "N/A") return 1;
                         else if (b.installDate === "N/A") return -1;
                         else cmp = a.installDate.localeCompare(b.installDate);
+                    } else if (sortBy === "size") {
+                        if (a.sizeMB === null && b.sizeMB === null) cmp = 0;
+                        else if (a.sizeMB === null) return 1;
+                        else if (b.sizeMB === null) return -1;
+                        else cmp = a.sizeMB - b.sizeMB;
                     } else {
                         cmp = a.name.localeCompare(b.name);
                     }
