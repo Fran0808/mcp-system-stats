@@ -6,7 +6,7 @@ export function registerSystemTools(server: McpServer) {
     server.registerTool(
         "get_system_overview",
         {
-            description: "Use this tool whenever the user asks about their local operating system, local OS name/version, CPU specifications, hardware info, hostname, system uptime, or current CPU usage."
+            description: "Get a high-level overview of the local host system. Returns OS platform, release, architecture, hostname, logged-in username, system uptime (formatted and seconds), CPU brand model, core count, and current real-time CPU load percentage. Use this to quickly establish host context before running deep diagnostics."
         },
         async () => {
             try {
@@ -61,7 +61,7 @@ export function registerSystemTools(server: McpServer) {
     server.registerTool(
         "get_system_health",
         {
-            description: "Use this tool whenever the user asks for a complete diagnostic, health check, system performance status, or overall health of their local computer."
+            description: "Perform a real-time system health evaluation. Computes CPU load and RAM memory utilization, evaluates threshold criteria, returns diagnostic health status ('HEALTHY', 'WARNING', 'CRITICAL'), total and free RAM (GB), system uptime, and actionable alerts. Use this to detect immediate system degradation, performance bottlenecks, or memory pressure."
         },
         async () => {
             try {
@@ -133,7 +133,7 @@ export function registerSystemTools(server: McpServer) {
     server.registerTool(
         "get_battery_status",
         {
-            description: "Use this tool whenever the user asks about their laptop battery percentage, battery health, charging state, or remaining time."
+            description: "Retrieve laptop battery telemetry and health metrics. Returns battery percentage, charging state (AC connected / on battery), estimated remaining runtime in minutes, designed capacity vs max capacity, calculated battery health degradation percentage, and battery chemistry type. Returns informative message if executed on desktop PCs or systems without battery hardware."
         },
         async () => {
             try {

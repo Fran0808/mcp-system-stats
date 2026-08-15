@@ -9,7 +9,7 @@ export function registerPerformanceTools(server: McpServer) {
     server.registerTool(
         "get_cpu_stats",
         {
-            description: "Use this tool whenever the user asks about their CPU usage, CPU load per core, CPU temperature, CPU speed, or wants a complete overview of their processor performance."
+            description: "Retrieve comprehensive CPU performance metrics and thermal telemetry. Returns processor model, logical cores, physical cores, current/min/max clock speeds (GHz), total and breakdown load (user, system, idle percentages), per-core utilization percentages, main and max package temperatures (°C), thermal health status ('NORMAL' <75°C, 'HOT' 75-89°C, 'CRITICAL' >=90°C), temperature sensor source, and individual per-core temperatures when available. Use to diagnose thermal throttling or compute bottlenecks."
         },
         async () => {
             try {
@@ -117,9 +117,9 @@ export function registerPerformanceTools(server: McpServer) {
     server.registerTool(
         "get_memory_status",
         {
-            description: "Use this tool whenever the user asks about their local computer RAM memory usage, available RAM, free RAM, or memory performance.",
+            description: "Retrieve precise physical RAM utilization metrics. Returns total system RAM, free available RAM, used RAM, and memory utilization percentage in either GB or MB. Use this to analyze memory saturation, check headroom for large workloads, or assess RAM pressure.",
             inputSchema: z.object({
-                unit: z.enum(["GB", "MB"]).optional().default("GB")
+                unit: z.enum(["GB", "MB"]).optional().default("GB").describe("Unit of measurement for RAM output values: 'GB' for gigabytes (default) or 'MB' for megabytes.")
             })
         },
         async ({ unit }) => {
@@ -151,9 +151,9 @@ export function registerPerformanceTools(server: McpServer) {
     server.registerTool(
         "get_disk_space",
         {
-            description: "Use this tool whenever the user asks about their local computer disk space, hard drive storage, or free space on drive C or root.",
+            description: "Retrieve storage capacity and free space metrics for a specified drive path or mount point. Returns total capacity (GB), free space (GB), used space (GB), and utilization percentage. Use to identify low-disk-space warnings (>85% utilized) and verify available storage for software installations or large downloads.",
             inputSchema: z.object({
-                path: z.string().optional().default(os.platform() === "win32" ? "C:\\" : "/")
+                path: z.string().optional().default(os.platform() === "win32" ? "C:\\" : "/").describe("File system path or drive letter to inspect (e.g. 'C:\\\\', 'D:\\\\', or '/'). Defaults to the primary system root drive.")
             })
         },
         async ({ path }) => {
