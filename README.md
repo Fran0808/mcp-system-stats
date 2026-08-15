@@ -123,7 +123,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 | `get_gpu_processes` | Per-process VRAM utilization, active GPU applications, and remaining VRAM margin (headroom). | `limit`: `1..50` |
 | `get_services` | Background system services, execution status (`Running`/`Stopped`), and start mode (`Auto`/`Manual`/`Disabled`). | `status`: `"all"` \| `"running"` \| `"stopped"`, `search`: string, `limit`: `1..100` |
 | `get_startup_programs` | Programs configured to launch on system startup (Task Manager Startup tab, Registry Run, Startup Folder). | `search`: string, `limit`: `1..50` |
-| `get_installed_programs` | Installed software applications catalog with version, publisher, install date, and install directory. | `search`: string, `sortBy`: `"name"` \| `"installDate"`, `limit`: `1..100` |
+| `get_installed_programs` | Installed software applications catalog with version, publisher, install date, and install directory. | `search`: string, `sortBy`: `"name"` \| `"installDate"`, `order`: `"asc"` \| `"desc"`, `limit`: `1..100` |
 
 ---
 
