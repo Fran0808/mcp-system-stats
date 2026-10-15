@@ -23,6 +23,8 @@ This MCP Server works with any client supporting the Model Context Protocol:
 
 ## Quick Start & Setup
 
+Requires **Node.js 22.14+ (22.x), 24.x, or 26+**. Version 2 drops Node.js 20 and 23 support.
+
 ### Step 1: Choose How You Want to Run It
 
 You have two simple ways to use this MCP server:
@@ -94,12 +96,13 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 ## Features
 
 - **Real-Time System Overview:** Instant OS, kernel, uptime, and CPU hardware details.
-- **CPU Stats and Temperature:** Comprehensive CPU load per core, frequency specifications, and thermal readings with native non-admin fallback for Windows.
+- **CPU Stats and Temperature:** Comprehensive CPU load per core, frequency specifications, and thermal readings with an optional LibreHardwareMonitor fallback on Windows. Missing CPU sensors are reported as unavailable; ACPI thermal zones are not treated as CPU temperatures.
 - **Task-Manager-Style Process Aggregation:** Group top processes by application name (e.g. `brave.exe`, `code.exe`) with total memory, CPU utilization, and instance counts matching Windows Task Manager.
 - **Live Network Bandwidth:** Sample real-time download and upload speeds (KB/s and Mbps) per active interface.
 - **GPU and Displays:** Detect graphics cards, VRAM utilization, GPU temperatures, and connected monitors with resolution/refresh rates.
 - **Robust Diagnostics:** Overall system health check with automated alerts for high CPU or RAM pressure.
-- **Enterprise Ready:** 100% TypeScript, fully tested with Vitest and automated GitHub Actions CI.
+- **Measurement Quality:** Timestamped diagnostics, explicit missing/unsupported telemetry, validated structured outputs, and read-only MCP annotations.
+- **Regression Coverage:** Deterministic unit tests plus separate hardware integration and installed-package tests in GitHub Actions.
 
 ---
 
@@ -117,13 +120,14 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 | `get_network_speed` | Real-time download/upload speed (KB/s and Mbps) per interface. | None |
 | `get_gpu_stats` | GPU controllers, VRAM MB, utilization %, temperature, and displays. | None |
 | `get_battery_status` | Laptop battery %, charging state, AC power, and health %. | None |
-| `get_system_health` | Comprehensive health check status (`HEALTHY`, `WARNING`, `CRITICAL`). | None |
+| `get_system_health` | Comprehensive health check status (`HEALTHY`, `WARNING`, `CRITICAL`, `UNKNOWN`). | None |
 | `get_hardware_specs` | Detailed physical hardware specs (Motherboard, BIOS, RAM sticks layout, physical SSD/HDD models). | None |
 | `get_usb_devices` | All connected USB peripherals categorized by type (keyboard, mouse, webcam, storage, audio, hub). | None |
-| `get_gpu_processes` | Per-process VRAM utilization, active GPU applications, and remaining VRAM margin (headroom). | `limit`: `1..50` |
+| `get_gpu_processes` | VRAM per selected GPU; process data includes adapter identity and telemetry availability. | `gpuId`: UUID or index, `limit`: `1..50` |
 | `get_services` | Background system services, execution status (`Running`/`Stopped`), and start mode (`Auto`/`Manual`/`Disabled`). | `status`: `"all"` \| `"running"` \| `"stopped"`, `search`: string, `limit`: `1..100` |
-| `get_startup_programs` | Programs configured to launch on system startup (Task Manager Startup tab, Registry Run, Startup Folder). | `search`: string, `limit`: `1..50` |
-| `get_installed_programs` | Installed software applications catalog with version, publisher, install date, estimated size (MB/GB), and install directory. | `search`: string, `sortBy`: `"name"` \| `"installDate"` \| `"size"`, `order`: `"asc"` \| `"desc"`, `limit`: `1..100` |
+| `get_startup_programs` | Windows only: programs configured to launch on system startup (Task Manager Startup tab, Registry Run, Startup Folder). | `search`: string, `limit`: `1..50` |
+| `get_installed_programs` | Windows only: installed software applications catalog with version, publisher, install date, estimated size (MB/GB), and install directory. | `search`: string, `sortBy`: `"name"` \| `"installDate"` \| `"size"`, `order`: `"asc"` \| `"desc"`, `limit`: `1..100` |
+| `get_performance_diagnostics` | Compare CPU/RAM pressure and disk I/O over multiple samples, with mounted-volume capacity and explicit missing data. | `samples`: `2..5` (default 3), `intervalMs`: `250..2000` (default 1000) |
 
 ---
 
@@ -134,7 +138,7 @@ MCP Resources allow LLM clients (Cursor, Claude Desktop, Windsurf, VS Code Copil
 | Resource URI | Resource Name | MIME Type | Description |
 |---|---|---|---|
 | `system://overview` | `system-overview` | `application/json` | Real-time summary of OS platform, CPU model, core counts, RAM, uptime, and identity. |
-| `system://health` | `system-health` | `application/json` | Real-time diagnostic health check status (`HEALTHY`, `WARNING`, `CRITICAL`) and alerts. |
+| `system://health` | `system-health` | `application/json` | Real-time diagnostic health check status (`HEALTHY`, `WARNING`, `CRITICAL`, `UNKNOWN`) and alerts. |
 | `system://hardware` | `system-hardware` | `application/json` | Complete physical hardware specs (Motherboard, BIOS, RAM sticks layout, SSD/HDDs, GPUs). |
 | `system://live-stats` | `system-live-stats` | `text/markdown` | Formatted Markdown dashboard ready for direct LLM context injection (`@system://live-stats`). |
 
@@ -157,10 +161,10 @@ MCP Resources allow LLM clients (Cursor, Claude Desktop, Windsurf, VS Code Copil
     "perCore": [{ "core": 0, "loadPercentage": "47.25%" }]
   },
   "temperature": {
-    "mainC": "27.9°C",
-    "maxC": "27.9°C",
-    "status": "NORMAL",
-    "sensorSource": "Windows Thermal Zone Performance Counter",
+    "mainC": "N/A",
+    "maxC": "N/A",
+    "status": "Unavailable",
+    "sensorSource": "Unavailable",
     "perCore": []
   }
 }
@@ -200,7 +204,7 @@ Clone the repository and install dependencies:
 ```bash
 git clone https://github.com/Fran0808/mcp-system-stats.git
 cd mcp-system-stats
-npm install
+npm ci
 ```
 
 ### Build
@@ -210,12 +214,38 @@ npm run build
 ```
 
 ### Run Tests
-Execute the Vitest suite:
+Run deterministic tests (no hardware commands):
 ```bash
 npm test
 ```
 
 ---
+
+### Integration and package checks
+
+```bash
+npm run typecheck
+npm run build
+npm run test:integration
+npm run test:package
+npm run check:release
+npm audit
+```
+
+Integration tests query real hardware and are run on Windows, Linux and macOS in CI. Hardware availability depends on OS, drivers, permissions and virtualization. No tests are skipped merely because `CI` is set. The package check builds a tarball, installs it with production dependencies into a temporary directory, and tests its actual stdio entry point.
+
+## Migrating from 1.x to 2.0
+
+- The package and MCP handshake now share the same version. The server requires Node.js 22.14+ on the 22.x line, 24.x, or 26+.
+- CPU percentages may be `null` when measurement fails. Health adds `UNKNOWN` and `measurementStatus: "partial"`; a known warning or critical measurement still takes precedence over unknown data. Inspect alerts before making a diagnosis.
+- GPU memory and process counts may be `null` when not measurable. Select a GPU using `gpuId` from `gpus`. NVIDIA fallback lists compute applications only; Windows process counters are used only when there is exactly one physical adapter. Process coverage is identified by `processSource` and `processStatus`.
+- Windows software inventories return `isError: true` with `UNSUPPORTED_PLATFORM` on Linux/macOS, or `COLLECTION_FAILED` on query errors. Empty successful inventories remain valid.
+- Every tool advertises an output schema and read-only annotations. Successful results expose matching JSON in `structuredContent` and text. Errors expose a structured code/message and do not pretend to be successful measurements.
+- Network sampling covers all adapters except identified loopback adapters. Mbps uses decimal bits/second; legacy KBps fields represent KiB/s and are identified in `units`. `elapsedMs` includes collection overhead, while `samplingIntervalMs` is the requested wait.
+- Disk `freeGB`/`availableGB` represent space available to the current user; `reservedGB` reports reserved free blocks. Used + available + reserved equals total, allowing for rounding.
+- Concurrent health reads share a sample for 250 ms. Static hardware inventory is cached for 30 seconds. The temporal diagnostic always collects fresh system samples and labels unavailable I/O rather than assuming zero.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes and [RELEASING.md](RELEASING.md) for publishing setup.
 
 ## License
 
