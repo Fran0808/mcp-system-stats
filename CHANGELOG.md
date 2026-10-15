@@ -12,6 +12,7 @@
 
 ### Fixes
 
+- Report full service enumeration as unsupported on macOS and verify that contract in integration tests, rather than requiring a nonempty result from an unsupported library operation.
 - Match the MCP handshake version to package.json automatically.
 - Sample all network adapters, exclude loopbacks by metadata, preserve names such as `wlo1`, and correct bytes/second to Mbps conversion.
 - Parse NVIDIA output per GPU and associate process memory by UUID. Never mix adapters or substitute missing VRAM with zero. Report process coverage explicitly.

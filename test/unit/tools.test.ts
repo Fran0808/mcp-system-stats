@@ -84,6 +84,33 @@ describe("network regression", () => {
     });
 });
 
+describe("service enumeration support", () => {
+    it.each([{}, { status: "running", search: "node", limit: 3 }])("reports macOS enumeration as unsupported for %j", async args => {
+        vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
+        const collect = vi.spyOn(si, "services");
+        const powershell = vi.spyOn(helpers, "runPowerShell");
+        const result = await call("get_services", args);
+        expect(result.isError).toBe(true);
+        expect(result.data).toMatchObject({ code: "UNSUPPORTED_PLATFORM", measurementStatus: "unsupported" });
+        expect(result.data.message).toContain("search_process");
+        expect(collect).not.toHaveBeenCalled();
+        expect(powershell).not.toHaveBeenCalled();
+    });
+
+    it("still enumerates and filters Linux services", async () => {
+        vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+        const collect = vi.spyOn(si, "services").mockResolvedValue([
+            { name: "node-service", running: true, startmode: "", pids: [123] },
+            { name: "other-service", running: false, startmode: "", pids: [] }
+        ] as Awaited<ReturnType<typeof si.services>>);
+        const result = await call("get_services", { status: "running", search: "node", limit: 1 });
+        expect(result.isError).not.toBe(true);
+        expect(collect).toHaveBeenCalledWith("*");
+        expect(result.data).toMatchObject({ totalServicesSystem: 2, totalRunning: 1, totalStopped: 1, totalMatching: 1, returnedCount: 1 });
+        expect(result.data.services).toEqual([{ name: "node-service", displayName: "node-service", status: "Running", startMode: "Unknown", pid: 123 }]);
+    });
+});
+
 describe("software inventory", () => {
     it("distinguishes unsupported platforms from an empty inventory", async () => {
         vi.spyOn(process, "platform", "get").mockReturnValue("linux");

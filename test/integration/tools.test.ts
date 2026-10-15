@@ -331,6 +331,11 @@ describe("Process Tools", () => {
         const client = await createConnectedClient();
         const res = await callToolAndParse(client, "get_services", { limit: 5 });
 
+        if (process.platform === "darwin") {
+            expect(res.code).toBe("UNSUPPORTED_PLATFORM");
+            expect(res.measurementStatus).toBe("unsupported");
+            return;
+        }
         expect(typeof res.totalServicesSystem).toBe("number");
         expect(res.totalServicesSystem).toBeGreaterThan(0);
         expect(typeof res.totalRunning).toBe("number");
@@ -352,6 +357,11 @@ describe("Process Tools", () => {
             limit: 3
         });
 
+        if (process.platform === "darwin") {
+            expect(res.code).toBe("UNSUPPORTED_PLATFORM");
+            expect(res.measurementStatus).toBe("unsupported");
+            return;
+        }
         expect(Array.isArray(res.services)).toBe(true);
         for (const s of res.services) {
             expect(s.status).toBe("Running");

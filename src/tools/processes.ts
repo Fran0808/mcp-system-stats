@@ -1,4 +1,4 @@
-import { registerTool } from "./register.js";
+import { registerTool, toolError } from "./register.js";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import si from "systeminformation";
@@ -191,7 +191,7 @@ export function registerProcessTools(server: McpServer) {
     registerTool(server,
         "get_services",
         {
-            description: "Query background system services, daemon processes, and Windows services. Returns total service counts, count of currently running services, count of stopped services, and a detailed list with internal service name, friendly display name, execution status ('Running' vs 'Stopped'), startup configuration mode ('Auto', 'Manual', 'Disabled'), and associated PID when running. Supports filtering by execution status and keyword search across service names and descriptions. Use to inspect service health, identify stopped essential services, or audit background daemons.",
+            description: "List background system services on Windows and Linux. Full service enumeration is unsupported on macOS; use search_process for a known process instead. Returns total service counts, count of currently running services, count of stopped services, and a detailed list with internal service name, friendly display name, execution status ('Running' vs 'Stopped'), startup configuration mode when available, and associated PID when running. Supports filtering by execution status and keyword search across service names and descriptions.",
             inputSchema: z.object({
                 status: z.enum(["all", "running", "stopped"]).optional().default("all").describe("Filter services by execution state: 'all' for all services, 'running' for active services only, or 'stopped' for inactive services."),
                 search: z.string().optional().describe("Case-insensitive text filter to search services by internal name or display name (e.g. 'update', 'docker', 'sql', 'audio', 'defender')."),
@@ -200,6 +200,9 @@ export function registerProcessTools(server: McpServer) {
         },
         async ({ status, search, limit }) => {
             try {
+                if (process.platform === "darwin") {
+                    return toolError("UNSUPPORTED_PLATFORM", "Full service enumeration is unsupported on macOS. Use search_process to inspect a known process.");
+                }
                 let serviceList: Array<{
                     name: string;
                     displayName: string;
