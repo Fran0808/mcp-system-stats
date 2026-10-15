@@ -1,11 +1,15 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { server } from "../src/index.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { describe, it, expect, afterEach } from "vitest";
+import { createServer } from "../../src/server.js";
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport } from "@modelcontextprotocol/server";
 
 type TextContent = { type: "text"; text: string };
 
+const clients: Client[] = [];
+afterEach(async () => { await Promise.all(clients.splice(0).map(client => client.close())); });
+
 async function createConnectedClient() {
+    const server = createServer();
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client(
         { name: "test-client", version: "1.0.0" },
@@ -17,6 +21,7 @@ async function createConnectedClient() {
         client.connect(clientTransport)
     ]);
 
+    clients.push(client);
     return client;
 }
 
@@ -25,7 +30,12 @@ async function callToolAndParse(client: Client, name: string, args?: Record<stri
     const content = res.content as TextContent[];
     expect(content).toBeDefined();
     expect(content.length).toBeGreaterThan(0);
-    return JSON.parse(content[0].text);
+    const data = JSON.parse(content[0].text);
+    if (res.isError) {
+        expect(data.measurementStatus).toBe("unsupported");
+        expect(data.code).toBe("UNSUPPORTED_PLATFORM");
+    } else expect(res.structuredContent).toEqual(data);
+    return data;
 }
 
 // ─── Tool Registration ─────────────────────────────────────────────────────────
@@ -48,10 +58,11 @@ describe("Tool Registration", () => {
         "get_gpu_processes",
         "get_services",
         "get_startup_programs",
-        "get_installed_programs"
+        "get_installed_programs",
+        "get_performance_diagnostics"
     ];
 
-    it("should register all 17 tools", async () => {
+    it("should register all 18 tools", async () => {
         const client = await createConnectedClient();
         const toolsResult = await client.listTools();
         const toolNames = toolsResult.tools.map((t) => t.name);
@@ -132,15 +143,17 @@ describe("System Tools", () => {
         expect(overview.hostname).toBeDefined();
         expect(overview.uptimeSeconds).toBeGreaterThan(0);
         expect(overview.uptimeFormatted).toMatch(/\d+d \d+h \d+m/);
-        expect(overview.cpuLoadPercentage).toMatch(/^\d+(\.\d+)?%$/);
+        if (overview.cpuLoadPercentage === null) expect(overview.measurementStatus).toBe("partial");
+        else expect(overview.cpuLoadPercentage).toMatch(/^\d+(\.\d+)?%$/);
     });
 
     it("get_system_health should return status with valid thresholds", async () => {
         const client = await createConnectedClient();
         const health = await callToolAndParse(client, "get_system_health");
 
-        expect(["HEALTHY", "WARNING", "CRITICAL"]).toContain(health.status);
-        expect(health.cpuLoadPercentage).toMatch(/^\d+(\.\d+)?%$/);
+        expect(["HEALTHY", "WARNING", "CRITICAL", "UNKNOWN"]).toContain(health.status);
+        if (health.cpuLoadPercentage === null) expect(health.measurementStatus).toBe("partial");
+        else expect(health.cpuLoadPercentage).toMatch(/^\d+(\.\d+)?%$/);
         expect(health.ramLoadPercentage).toMatch(/^\d+(\.\d+)?%$/);
         expect(health.totalRamGB).toBeGreaterThan(0);
         expect(health.freeRamGB).toBeGreaterThanOrEqual(0);
@@ -149,7 +162,7 @@ describe("System Tools", () => {
         expect(health.alerts.length).toBeGreaterThan(0);
     });
 
-    it.skipIf(Boolean(process.env.CI))("get_battery_status should return battery or no-battery response", async () => {
+    it("get_battery_status should return battery or no-battery response", async () => {
         const client = await createConnectedClient();
         const battery = await callToolAndParse(client, "get_battery_status");
 
@@ -216,7 +229,7 @@ describe("Performance Tools", () => {
         expect(disk.usedGB).toBeGreaterThan(0);
         expect(disk.freeGB).toBeGreaterThanOrEqual(0);
         expect(disk.usedPercentage).toMatch(/^\d+(\.\d+)?%$/);
-        expect(disk.usedGB + disk.freeGB).toBeCloseTo(disk.totalGB, 0);
+        expect(disk.usedGB + disk.freeGB + disk.reservedGB).toBeCloseTo(disk.totalGB, 0);
     });
 });
 
@@ -373,11 +386,11 @@ describe("Hardware Tools", () => {
 
         expect(gpuProc.gpuModel).toBeDefined();
         if (gpuProc.totalVramMB !== undefined) {
-            expect(typeof gpuProc.totalVramMB === "number" || typeof gpuProc.totalVramMB === "string").toBe(true);
+            expect(gpuProc.totalVramMB === null || typeof gpuProc.totalVramMB === "number").toBe(true);
         }
     });
 
-    it.skipIf(Boolean(process.env.CI))("get_hardware_specs should return motherboard, RAM layout, and drives", async () => {
+    it("get_hardware_specs should return motherboard, RAM layout, and drives", async () => {
         const client = await createConnectedClient();
         const specs = await callToolAndParse(client, "get_hardware_specs");
 
@@ -387,8 +400,9 @@ describe("Hardware Tools", () => {
         expect(specs.motherboard.bios.vendor).toBeDefined();
         expect(specs.systemModel).toBeDefined();
         expect(specs.ramLayout).toBeDefined();
-        expect(specs.ramLayout.totalSticks).toBeGreaterThan(0);
-        expect(specs.ramLayout.totalCapacityGB).toBeGreaterThan(0);
+        expect(specs.ramLayout.totalSticks).toBeGreaterThanOrEqual(0);
+        expect(specs.ramLayout.totalCapacityGB).toBeGreaterThanOrEqual(0);
+        if (!specs.ramLayout.totalSticks) expect(specs.measurements.memoryLayout).toBe("unavailable");
         expect(Array.isArray(specs.ramLayout.sticks)).toBe(true);
 
         if (specs.ramLayout.sticks.length > 0) {
@@ -423,10 +437,11 @@ describe("Hardware Tools", () => {
 
 
 describe("Software Tools", () => {
-    it.skipIf(Boolean(process.env.CI))("get_startup_programs should return startup applications", async () => {
+    it("get_startup_programs should return startup applications", async () => {
         const client = await createConnectedClient();
         const res = await callToolAndParse(client, "get_startup_programs", { limit: 5 });
 
+        if (process.platform !== "win32") { expect(res.code).toBe("UNSUPPORTED_PLATFORM"); return; }
         expect(typeof res.totalStartupPrograms).toBe("number");
         expect(Array.isArray(res.programs)).toBe(true);
 
@@ -438,21 +453,23 @@ describe("Software Tools", () => {
         }
     });
 
-    it.skipIf(Boolean(process.env.CI))("get_startup_programs should support search filter", async () => {
+    it("get_startup_programs should support search filter", async () => {
         const client = await createConnectedClient();
         const res = await callToolAndParse(client, "get_startup_programs", {
             search: "e",
             limit: 3
         });
 
+        if (process.platform !== "win32") { expect(res.code).toBe("UNSUPPORTED_PLATFORM"); return; }
         expect(Array.isArray(res.programs)).toBe(true);
         expect(res.programs.length).toBeLessThanOrEqual(3);
     });
 
-    it.skipIf(Boolean(process.env.CI))("get_installed_programs should return installed applications", async () => {
+    it("get_installed_programs should return installed applications", async () => {
         const client = await createConnectedClient();
         const res = await callToolAndParse(client, "get_installed_programs", { limit: 5 });
 
+        if (process.platform !== "win32") { expect(res.code).toBe("UNSUPPORTED_PLATFORM"); return; }
         expect(typeof res.totalInstalledPrograms).toBe("number");
         expect(Array.isArray(res.programs)).toBe(true);
 
@@ -464,7 +481,7 @@ describe("Software Tools", () => {
         }
     });
 
-    it.skipIf(Boolean(process.env.CI))("get_installed_programs should support search filter and sorting", async () => {
+    it("get_installed_programs should support search filter and sorting", async () => {
         const client = await createConnectedClient();
         const res = await callToolAndParse(client, "get_installed_programs", {
             search: "a",
@@ -472,6 +489,7 @@ describe("Software Tools", () => {
             limit: 3
         });
 
+        if (process.platform !== "win32") { expect(res.code).toBe("UNSUPPORTED_PLATFORM"); return; }
         expect(Array.isArray(res.programs)).toBe(true);
         expect(res.programs.length).toBeLessThanOrEqual(3);
     });

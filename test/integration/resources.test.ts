@@ -1,9 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { server } from "../src/index.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { describe, it, expect, afterEach } from "vitest";
+import { createServer } from "../../src/server.js";
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport } from "@modelcontextprotocol/server";
+
+const clients: Client[] = [];
+afterEach(async () => { await Promise.all(clients.splice(0).map(client => client.close())); });
 
 async function createConnectedClient() {
+    const server = createServer();
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client(
         { name: "test-client", version: "1.0.0" },
@@ -15,6 +19,7 @@ async function createConnectedClient() {
         client.connect(clientTransport)
     ]);
 
+    clients.push(client);
     return client;
 }
 
@@ -77,7 +82,7 @@ describe("MCP Resources", () => {
         }
 
         const data = JSON.parse(content.text);
-        expect(["HEALTHY", "WARNING", "CRITICAL"]).toContain(data.status);
+        expect(["HEALTHY", "WARNING", "CRITICAL", "UNKNOWN"]).toContain(data.status);
         expect(data.cpuLoadPercentage).toBeDefined();
         expect(data.ramLoadPercentage).toBeDefined();
         expect(Array.isArray(data.alerts)).toBe(true);
@@ -85,7 +90,7 @@ describe("MCP Resources", () => {
         await client.close();
     });
 
-    it.skipIf(Boolean(process.env.CI))("should read system://hardware resource and return hardware inventory", async () => {
+    it("should read system://hardware resource and return hardware inventory", async () => {
         const client = await createConnectedClient();
         const res = await client.readResource({ uri: "system://hardware" });
 
