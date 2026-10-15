@@ -1,3 +1,4 @@
+import { registerTool } from "./register.js";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import os from "node:os";
@@ -6,17 +7,18 @@ import si from "systeminformation";
 import { getWindowsCpuTemp } from "./helpers.js";
 
 export function registerPerformanceTools(server: McpServer) {
-    server.registerTool(
+    registerTool(server,
         "get_cpu_stats",
         {
             description: "Retrieve comprehensive CPU performance metrics and thermal telemetry. Returns processor model, logical cores, physical cores, current/min/max clock speeds (GHz), total and breakdown load (user, system, idle percentages), per-core utilization percentages, main and max package temperatures (°C), thermal health status ('NORMAL' <75°C, 'HOT' 75-89°C, 'CRITICAL' >=90°C), temperature sensor source, and individual per-core temperatures when available. Use to diagnose thermal throttling or compute bottlenecks."
         },
         async () => {
             try {
-                const [loadData, tempData, cpuData] = await Promise.all([
+                const [loadData, tempData, cpuData, speedData] = await Promise.all([
                     si.currentLoad(),
-                    si.cpuTemperature(),
-                    si.cpu()
+                    si.cpuTemperature().catch(() => ({ main: null, max: null, cores: [] as number[] })),
+                    si.cpu(),
+                    si.cpuCurrentSpeed().catch(() => null)
                 ]);
 
                 // Per-core load
@@ -29,11 +31,11 @@ export function registerPerformanceTools(server: McpServer) {
                 let coreTemps = tempData.cores && tempData.cores.length > 0
                     ? tempData.cores.map((temp, index) => ({
                         core: index,
-                        tempC: temp !== null ? temp + "°C" : "N/A"
+                        tempC: Number.isFinite(temp) && temp > 0 ? temp + "°C" : "N/A"
                     }))
                     : [];
 
-                let mainTemp = tempData.main ?? null;
+                let mainTemp = typeof tempData.main === "number" && Number.isFinite(tempData.main) && tempData.main > 0 ? tempData.main : null;
                 let tempSource = "System Information API";
 
                 if ((mainTemp === null || mainTemp === undefined || mainTemp === 0) && os.platform() === "win32") {
@@ -54,7 +56,7 @@ export function registerPerformanceTools(server: McpServer) {
                     else tempStatus = "NORMAL";
                 }
 
-                let calculatedMaxC = tempData.max !== null && tempData.max !== undefined && tempData.max > 0 ? tempData.max : null;
+                let calculatedMaxC = typeof tempData.max === "number" && Number.isFinite(tempData.max) && tempData.max > 0 ? tempData.max : null;
                 if (calculatedMaxC === null && coreTemps.length > 0) {
                     const numericTemps = coreTemps
                         .map(c => parseFloat(c.tempC))
@@ -72,7 +74,7 @@ export function registerPerformanceTools(server: McpServer) {
                     cores: cpuData.cores,
                     physicalCores: cpuData.physicalCores,
                     speedGHz: {
-                        current: cpuData.speed ?? "N/A",
+                        current: speedData && Number.isFinite(speedData.avg) && speedData.avg > 0 ? speedData.avg : null,
                         min: cpuData.speedMin ?? "N/A",
                         max: cpuData.speedMax ?? "N/A"
                     },
@@ -114,7 +116,7 @@ export function registerPerformanceTools(server: McpServer) {
         }
     );
 
-    server.registerTool(
+    registerTool(server,
         "get_memory_status",
         {
             description: "Retrieve precise physical RAM utilization metrics. Returns total system RAM, free available RAM, used RAM, and memory utilization percentage in either GB or MB. Use this to analyze memory saturation, check headroom for large workloads, or assess RAM pressure.",
@@ -148,7 +150,7 @@ export function registerPerformanceTools(server: McpServer) {
         }
     );
 
-    server.registerTool(
+    registerTool(server,
         "get_disk_space",
         {
             description: "Retrieve storage capacity and free space metrics for a specified drive path or mount point. Returns total capacity (GB), free space (GB), used space (GB), and utilization percentage. Use to identify low-disk-space warnings (>85% utilized) and verify available storage for software installations or large downloads.",
@@ -160,11 +162,16 @@ export function registerPerformanceTools(server: McpServer) {
             try {
                 const stats = await fs.promises.statfs(path);
                 const totalBytes = stats.bsize * stats.blocks;
-                const freeBytes = stats.bsize * stats.bfree;
-                const usedBytes = totalBytes - freeBytes;
+                const freeBytes = stats.bsize * stats.bavail;
+                const unallocatedBytes = stats.bsize * stats.bfree;
+                const usedBytes = totalBytes - unallocatedBytes;
 
                 const diskStats = {
+                    sampledAt: new Date().toISOString(),
+                    source: "node:fs.statfs",
                     path,
+                    availableGB: Number((freeBytes / (1024 ** 3)).toFixed(2)),
+                    reservedGB: Number(((unallocatedBytes - freeBytes) / (1024 ** 3)).toFixed(2)),
                     totalGB: Number((totalBytes / (1024 ** 3)).toFixed(2)),
                     freeGB: Number((freeBytes / (1024 ** 3)).toFixed(2)),
                     usedGB: Number((usedBytes / (1024 ** 3)).toFixed(2)),

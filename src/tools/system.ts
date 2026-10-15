@@ -1,9 +1,11 @@
+import { getSystemSnapshot } from "../collectors.js";
+import { registerTool } from "./register.js";
 import type { McpServer } from "@modelcontextprotocol/server";
 import os from "node:os";
 import si from "systeminformation";
 
 export function registerSystemTools(server: McpServer) {
-    server.registerTool(
+    registerTool(server,
         "get_system_overview",
         {
             description: "Get a high-level overview of the local host system. Returns OS platform, release, architecture, hostname, logged-in username, system uptime (formatted and seconds), CPU brand model, core count, and current real-time CPU load percentage. Use this to quickly establish host context before running deep diagnostics."
@@ -18,11 +20,13 @@ export function registerSystemTools(server: McpServer) {
                 const minutes = Math.floor((uptimeSeconds % 3600) / 60);
                 const uptimeFormatted = `${days}d ${hours}h ${minutes}m`;
 
-                // Get real-time CPU load
-                const loadData = await si.currentLoad();
-                const cpuLoadPercentage = Number(loadData.currentLoad.toFixed(2)) + "%";
+                const snapshot = await getSystemSnapshot();
+                const cpuLoadPercentage = snapshot.cpuLoadPercentage;
 
                 const overview = {
+                    sampledAt: snapshot.sampledAt,
+                    measurementStatus: snapshot.measurementStatus,
+                    source: snapshot.source,
                     platform: os.platform(),
                     type: os.type(),
                     release: os.release(),
@@ -58,55 +62,14 @@ export function registerSystemTools(server: McpServer) {
         }
     );
 
-    server.registerTool(
+    registerTool(server,
         "get_system_health",
         {
-            description: "Perform a real-time system health evaluation. Computes CPU load and RAM memory utilization, evaluates threshold criteria, returns diagnostic health status ('HEALTHY', 'WARNING', 'CRITICAL'), total and free RAM (GB), system uptime, and actionable alerts. Use this to detect immediate system degradation, performance bottlenecks, or memory pressure."
+            description: "Perform a real-time system health evaluation. Computes CPU load and RAM memory utilization, evaluates threshold criteria, returns diagnostic health status ('HEALTHY', 'WARNING', 'CRITICAL', 'UNKNOWN'), total and free RAM (GB), system uptime, and actionable alerts. Use this to detect immediate system degradation, performance bottlenecks, or memory pressure."
         },
         async () => {
             try {
-                // Get real-time CPU load
-                const loadData = await si.currentLoad();
-                const cpuLoad = Number(loadData.currentLoad.toFixed(2));
-
-                // Get real-time RAM load
-                const totalRam = os.totalmem();
-                const freeRam = os.freemem();
-                const usedRam = totalRam - freeRam;
-                const ramLoad = Number(((usedRam / totalRam) * 100).toFixed(2));
-
-                const alerts: string[] = [];
-                let status: "HEALTHY" | "WARNING" | "CRITICAL" = "HEALTHY";
-
-                if (cpuLoad >= 90 || ramLoad >= 90) {
-                    status = "CRITICAL";
-                } else if (cpuLoad >= 75 || ramLoad >= 75) {
-                    status = "WARNING";
-                }
-
-                if (cpuLoad >= 90) {
-                    alerts.push(`CRITICAL: CPU utilization is very high (${cpuLoad}%).`);
-                } else if (cpuLoad >= 75) {
-                    alerts.push(`WARNING: CPU utilization is elevated (${cpuLoad}%).`);
-                }
-                if (ramLoad >= 90) {
-                    alerts.push(`CRITICAL: RAM memory utilization is very high (${ramLoad}%).`);
-                } else if (ramLoad >= 75) {
-                    alerts.push(`WARNING: RAM memory utilization is elevated (${ramLoad}%).`);
-                }
-                if (alerts.length === 0) {
-                    alerts.push("System is operating normally within optimal parameters.");
-                }
-
-                const healthReport = {
-                    status,
-                    cpuLoadPercentage: cpuLoad + "%",
-                    ramLoadPercentage: ramLoad + "%",
-                    totalRamGB: Number((totalRam / (1024 ** 3)).toFixed(2)),
-                    freeRamGB: Number((freeRam / (1024 ** 3)).toFixed(2)),
-                    uptimeSeconds: Math.floor(os.uptime()),
-                    alerts
-                };
+                const healthReport = await getSystemSnapshot();
 
                 return {
                     content: [
@@ -130,7 +93,7 @@ export function registerSystemTools(server: McpServer) {
         }
     );
 
-    server.registerTool(
+    registerTool(server,
         "get_battery_status",
         {
             description: "Retrieve laptop battery telemetry and health metrics. Returns battery percentage, charging state (AC connected / on battery), estimated remaining runtime in minutes, designed capacity vs max capacity, calculated battery health degradation percentage, and battery chemistry type. Returns informative message if executed on desktop PCs or systems without battery hardware."
