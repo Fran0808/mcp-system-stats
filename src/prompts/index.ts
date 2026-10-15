@@ -16,11 +16,13 @@ export function registerAllPrompts(server: McpServer) {
                         text: [
                             "Run a complete diagnostic of my system following these steps:",
                             "",
-                            "1. Call get_system_health to check the overall status (HEALTHY / WARNING / CRITICAL).",
+                            "1. Call get_system_health to check the overall status (HEALTHY / WARNING / CRITICAL / UNKNOWN).",
                             "2. Call get_cpu_stats to evaluate CPU load per core and temperature.",
                             "3. Call get_memory_status to check current RAM usage.",
                             "4. Call get_top_processes sorted by CPU to identify the heaviest applications.",
                             "",
+                            "5. Call get_performance_diagnostics to check whether load persists across samples and inspect disk I/O and volume capacity.",
+                            "If measurements are partial, unavailable, or unsupported, state those limits. Do not treat missing sensors as zero or healthy.",
                             "Then give me a clear diagnostic summary:",
                             "- Current health status with an explanation.",
                             "- Whether CPU or RAM are under pressure and why.",
@@ -114,6 +116,7 @@ export function registerAllPrompts(server: McpServer) {
             }
             if (focus === "all") {
                 steps.push("- Call get_top_processes sorted by CPU to find CPU-heavy applications.");
+                steps.push("- Call get_performance_diagnostics to distinguish sustained pressure from isolated spikes and inspect disk I/O.");
             }
 
             return {
