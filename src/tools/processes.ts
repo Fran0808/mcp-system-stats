@@ -1,19 +1,17 @@
+import { registerTool } from "./register.js";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import si from "systeminformation";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
-
-const execAsync = promisify(exec);
+import { runPowerShell } from "./helpers.js";
 
 export function registerProcessTools(server: McpServer) {
-    server.registerTool(
+    registerTool(server,
         "get_top_processes",
         {
             description: "Identify and rank resource-intensive applications and processes currently running on the local computer. Can sort by real-time CPU consumption percentage or physical RAM memory usage (MB), group multiple instances of the same application (e.g. multi-process browsers, Discord, Electron apps) into unified entries with instance counts and PID arrays, or return individual granular PID processes. Use to diagnose system slowdowns, high CPU spikes, and memory leaks.",
             inputSchema: z.object({
                 sortBy: z.enum(["cpu", "memory"]).optional().default("cpu").describe("Metric used to sort the top processes: 'cpu' for highest processor utilization or 'memory' for highest physical RAM usage."),
-                limit: z.number().min(1).max(50).optional().default(5).describe("Number of top resource-consuming applications/processes to return (1 to 50, default: 5)."),
+                limit: z.number().int().min(1).max(50).optional().default(5).describe("Number of top resource-consuming applications/processes to return (1 to 50, default: 5)."),
                 groupByApp: z.boolean().optional().default(true).describe("Whether to aggregate multiple sub-processes with the same executable name into a single combined entry (default: true). Set to false to inspect individual PIDs.")
             })
         },
@@ -118,7 +116,7 @@ export function registerProcessTools(server: McpServer) {
         }
     );
 
-    server.registerTool(
+    registerTool(server,
         "search_process",
         {
             description: "Search and inspect running processes by name or substring query (e.g. 'chrome', 'node', 'docker', 'python', 'ollama'). Returns whether matching processes are actively running, total count of active instances, aggregated CPU utilization percentage, aggregated physical RAM memory usage (MB), and a detailed breakdown of each individual instance with PID, process name, individual CPU %, and memory (MB). Use to verify if an application is active, hanging, or consuming excess resources.",
@@ -190,14 +188,14 @@ export function registerProcessTools(server: McpServer) {
         }
     );
 
-    server.registerTool(
+    registerTool(server,
         "get_services",
         {
             description: "Query background system services, daemon processes, and Windows services. Returns total service counts, count of currently running services, count of stopped services, and a detailed list with internal service name, friendly display name, execution status ('Running' vs 'Stopped'), startup configuration mode ('Auto', 'Manual', 'Disabled'), and associated PID when running. Supports filtering by execution status and keyword search across service names and descriptions. Use to inspect service health, identify stopped essential services, or audit background daemons.",
             inputSchema: z.object({
                 status: z.enum(["all", "running", "stopped"]).optional().default("all").describe("Filter services by execution state: 'all' for all services, 'running' for active services only, or 'stopped' for inactive services."),
                 search: z.string().optional().describe("Case-insensitive text filter to search services by internal name or display name (e.g. 'update', 'docker', 'sql', 'audio', 'defender')."),
-                limit: z.number().min(1).max(100).optional().default(30).describe("Maximum number of service entries to return (1 to 100, default: 30).")
+                limit: z.number().int().min(1).max(100).optional().default(30).describe("Maximum number of service entries to return (1 to 100, default: 30).")
             })
         },
         async ({ status, search, limit }) => {
@@ -212,9 +210,7 @@ export function registerProcessTools(server: McpServer) {
 
                 if (process.platform === "win32") {
                     try {
-                        const { stdout } = await execAsync(
-                            `powershell -NoProfile -Command "Get-CimInstance Win32_Service | Select-Object Name, DisplayName, State, StartMode, ProcessId | ConvertTo-Json -Compress"`
-                        );
+                        const { stdout } = await runPowerShell(`Get-CimInstance Win32_Service | Select-Object Name, DisplayName, State, StartMode, ProcessId | ConvertTo-Json -Compress`);
                         if (stdout.trim()) {
                             const items = JSON.parse(stdout.trim());
                             const arrayItems = Array.isArray(items) ? items : [items];

@@ -1,22 +1,21 @@
+import { registerTool, toolError } from "./register.js";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
-
-const execAsync = promisify(exec);
+import { runPowerShell } from "./helpers.js";
 
 export function registerSoftwareTools(server: McpServer) {
-    server.registerTool(
+    registerTool(server,
         "get_startup_programs",
         {
             description: "Inspect all programs, background updaters, and helper agents configured to execute automatically when the operating system starts (equivalent to Task Manager's 'Startup' tab). Returns program name, full command-line execution string with parameters, registration location (Registry User Run, Registry System Run, or Startup Folder), and user scope. Use to audit boot impact, identify unnecessary startup bloatware, and optimize system startup times.",
             inputSchema: z.object({
                 search: z.string().optional().describe("Case-insensitive keyword to filter startup programs by application name or command path (e.g. 'discord', 'steam', 'updater')."),
-                limit: z.number().min(1).max(50).optional().default(25).describe("Maximum number of startup items to return (1 to 50, default: 25).")
+                limit: z.number().int().min(1).max(50).optional().default(25).describe("Maximum number of startup items to return (1 to 50, default: 25).")
             })
         },
         async ({ search, limit }) => {
             try {
+                if (process.platform !== "win32") return toolError("UNSUPPORTED_PLATFORM", "This inventory is supported on Windows only.");
                 let startupItems: Array<{
                     name: string;
                     command: string;
@@ -26,9 +25,7 @@ export function registerSoftwareTools(server: McpServer) {
 
                 if (process.platform === "win32") {
                     try {
-                        const { stdout } = await execAsync(
-                            `powershell -NoProfile -Command "Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location, User | ConvertTo-Json -Compress"`
-                        );
+                        const { stdout } = await runPowerShell(`Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location, User | ConvertTo-Json -Compress`);
 
                         if (stdout.trim()) {
                             const items = JSON.parse(stdout.trim());
@@ -56,8 +53,8 @@ export function registerSoftwareTools(server: McpServer) {
                                 });
                             }
                         }
-                    } catch {
-                        // ignore PowerShell error
+                    } catch (error) {
+                        return toolError("COLLECTION_FAILED", error instanceof Error ? error.message : String(error));
                     }
                 }
 
@@ -76,6 +73,9 @@ export function registerSoftwareTools(server: McpServer) {
                             type: "text",
                             text: JSON.stringify(
                                 {
+                                    measurementStatus: "available",
+                                    source: "Win32_StartupCommand",
+                                    sampledAt: new Date().toISOString(),
                                     totalStartupPrograms: startupItems.length,
                                     filterApplied: { search: search || null },
                                     returnedCount: Math.min(filtered.length, limit),
@@ -101,7 +101,7 @@ export function registerSoftwareTools(server: McpServer) {
         }
     );
 
-    server.registerTool(
+    registerTool(server,
         "get_installed_programs",
         {
             description: "Query the comprehensive installed software application catalog from the system registry (equivalent to Windows Settings 'Installed Apps' / Programs & Features). Returns software name, installed version string, publisher/vendor organization, formatted installation date (YYYY-MM-DD), estimated disk size (MB/GB), and installation folder path. Supports keyword searching across program names and publishers, sorting alphabetically, by installation date, or by disk size, and specifying sort direction ('asc' or 'desc'). Use to audit software inventory, verify installed package versions, identify space-heavy applications, or check recently or oldest installed applications.",
@@ -109,11 +109,12 @@ export function registerSoftwareTools(server: McpServer) {
                 search: z.string().optional().describe("Case-insensitive keyword to search installed software by application name or publisher (e.g. 'python', 'microsoft', 'adobe', 'docker')."),
                 sortBy: z.enum(["name", "installDate", "size"]).optional().default("name").describe("Sort field for the returned software catalog: 'name' for app name (default), 'installDate' for installation date, or 'size' for estimated disk size."),
                 order: z.enum(["asc", "desc"]).optional().describe("Sort direction: 'asc' (ascending) or 'desc' (descending). Defaults to 'desc' if sortBy is 'installDate' or 'size', or 'asc' if sortBy is 'name'."),
-                limit: z.number().min(1).max(100).optional().default(50).describe("Maximum number of installed programs to return (1 to 100, default: 50).")
+                limit: z.number().int().min(1).max(100).optional().default(50).describe("Maximum number of installed programs to return (1 to 100, default: 50).")
             })
         },
         async ({ search, sortBy, order, limit }) => {
             try {
+                if (process.platform !== "win32") return toolError("UNSUPPORTED_PLATFORM", "This inventory is supported on Windows only.");
                 let appList: Array<{
                     name: string;
                     version: string;
@@ -126,9 +127,11 @@ export function registerSoftwareTools(server: McpServer) {
 
                 if (process.platform === "win32") {
                     try {
-                        const { stdout } = await execAsync(
-                            `powershell -NoProfile -Command "Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object DisplayName | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, EstimatedSize | ConvertTo-Json -Compress"`
-                        );
+                        const { stdout } = await runPowerShell(`
+                            $paths = @('HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall', 'HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall', 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall');
+                            $apps = @(foreach ($path in $paths) { if (Test-Path -LiteralPath $path -ErrorAction Stop) { Get-ItemProperty -Path ($path + '\\*') -ErrorAction Stop } });
+                            $apps | Where-Object DisplayName | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, EstimatedSize | ConvertTo-Json -Compress
+                        `);
 
                         if (stdout.trim()) {
                             const items = JSON.parse(stdout.trim());
@@ -173,8 +176,8 @@ export function registerSoftwareTools(server: McpServer) {
                                 });
                             }
                         }
-                    } catch {
-                        // ignore PowerShell error
+                    } catch (error) {
+                        return toolError("COLLECTION_FAILED", error instanceof Error ? error.message : String(error));
                     }
                 }
 
@@ -214,6 +217,9 @@ export function registerSoftwareTools(server: McpServer) {
                             type: "text",
                             text: JSON.stringify(
                                 {
+                                    measurementStatus: "available",
+                                    source: "Windows Uninstall Registry",
+                                    sampledAt: new Date().toISOString(),
                                     totalInstalledPrograms: appList.length,
                                     filterApplied: { search: search || null, sortBy, order: sortOrder },
                                     returnedCount: Math.min(filtered.length, limit),

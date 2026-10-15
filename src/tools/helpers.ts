@@ -2,7 +2,17 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import os from "node:os";
 
-export const execFileAsync = promisify(execFile);
+const execFilePromise = promisify(execFile);
+
+export async function execFileAsync(file: string, args: string[], options: { timeout?: number } = {}) {
+    return execFilePromise(file, args, { timeout: 10000, maxBuffer: 4 * 1024 * 1024,
+        windowsHide: true, encoding: "utf8", ...options });
+}
+
+export async function runPowerShell(script: string) {
+    return execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-NoLogo", "-Command",
+        "$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + script]);
+}
 
 export async function getWindowsCpuTemp(): Promise<{ mainC: number | null; perCore: Array<{ core: number; tempC: string }>; source: string }> {
     if (os.platform() !== "win32") return { mainC: null, perCore: [], source: "N/A" };
@@ -12,10 +22,6 @@ export async function getWindowsCpuTemp(): Promise<{ mainC: number | null; perCo
             try {
                 $lhm = Get-CimInstance -Namespace root/LibreHardwareMonitor -ClassName Sensor -ErrorAction Stop | Where-Object SensorType -eq 'Temperature' | Select-Object Name, Value;
                 if ($lhm) { ConvertTo-Json -InputObject @{ type='LHM'; data=$lhm }; exit }
-            } catch {}
-            try {
-                $tz = Get-CimInstance -ClassName Win32_PerfFormattedData_Counters_ThermalZoneInformation -ErrorAction Stop | Select-Object -ExpandProperty Temperature;
-                if ($tz) { ConvertTo-Json -InputObject @{ type='TZ'; temp=$tz }; exit }
             } catch {}
         `;
 
@@ -33,12 +39,6 @@ export async function getWindowsCpuTemp(): Promise<{ mainC: number | null; perCo
                     }));
                     const avgTemp = Number((cpuCoreSensors.reduce((acc: number, s: any) => acc + s.Value, 0) / cpuCoreSensors.length).toFixed(1));
                     return { mainC: avgTemp, perCore, source: "LibreHardwareMonitor WMI" };
-                }
-            } else if (result.type === "TZ" && result.temp !== undefined) {
-                const rawKelvin = Array.isArray(result.temp) ? parseFloat(result.temp[0]) : parseFloat(result.temp);
-                if (!isNaN(rawKelvin) && rawKelvin > 200) {
-                    const celsius = Number((rawKelvin - 273.15).toFixed(1));
-                    return { mainC: celsius, perCore: [], source: "Windows Thermal Zone Performance Counter" };
                 }
             }
         }
