@@ -9,7 +9,7 @@ The source of the skill is `skills/system-stats/` in this repository. It complem
 - **Category/tags:** Testing & Debugging; system diagnostics, MCP, CPU, RAM, GPU, local performance.
 - **Short description:** Diagnose local slowdowns with measured CPU/RAM samples, process rankings, disk capacity and GPU telemetry, with explicit limits when sensors are unavailable.
 - **Requirements to show prominently:** A desktop or CLI agent that can access the locally configured `@fran0808/system-stats` MCP server; supported Node.js; first-run npm access for the npx templates. Loading the skill alone does not connect the server. Cloud-only chats without local tools cannot inspect your PC.
-- **Compatibility statement:** Setup templates are provided for Cursor/Claude Desktop JSON and Codex TOML. Do not mark a client as end-to-end tested until the checks below have actually passed in that client.
+- **Compatibility statement:** The skill requires an agent that can load its instructions and call a local stdio MCP server. Setup explains generic launch values, then separate examples for Cursor, Claude Desktop, Claude Code and Codex. Do not mark a client as end-to-end tested until the checks below have actually passed in that client.
 - **License:** MIT; the skill includes the repository license. This is an original companion to the author's open-source MCP server.
 
 The skill does not promise automatic repairs, an internet speed test, drive failure prediction, or proof of thermal throttling. Explain that the MCP queries the host where it runs, which can be remote.
@@ -60,7 +60,7 @@ For unavailable hardware cases, use explicitly labeled fixtures in a controlled 
 - Existing server unit tests: 35 passed. Existing server TypeScript typecheck: passed.
 - npm registry: version `@fran0808/system-stats@2.0.1` resolved successfully.
 - Windows configuration command: launched the published npm version, completed the MCP handshake, listed all 18 tools, and returned successful live RAM and two-sample temporal diagnostics using an SDK client. No hardware identifiers or actual measurements were included in the skill or example files.
-- Not yet verified: skill activation and report quality inside Cursor, Claude Desktop or Codex; macOS/Linux launches; Agensi review and access to supporting files through its delivery service. The SDK connection check does not establish those results.
+- Not yet verified: skill activation and report quality inside Cursor, Claude Desktop, Claude Code or Codex; macOS/Linux launches; Agensi review and access to supporting files through its delivery service. The SDK connection check does not establish those results.
 
 ## Submission
 
