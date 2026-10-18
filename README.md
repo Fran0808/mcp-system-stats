@@ -197,6 +197,14 @@ MCP Resources allow LLM clients (Cursor, Claude Desktop, Windsurf, VS Code Copil
 
 ---
 
+## Companion Agent Skill
+
+The optional [System Stats skill](skills/system-stats/SKILL.md) guides an assistant through local performance diagnostics using this server's tools. The MCP server works independently; the skill adds measurement selection, interpretation rules, and an evidence-based report format.
+
+Start with the [connection guide](skills/system-stats/references/setup.md). It includes pinned npm configuration templates for Windows and macOS/Linux, plus Codex TOML examples. Loading the skill, including through Agensi, does not automatically connect the local server. A cloud-only assistant without local MCP access cannot inspect your computer.
+
+For maintainers, see [packaging, a free listing draft, and client validation scenarios](docs/skill-publishing.md). The distributable is `dist/system-stats-skill.zip`, containing only the `system-stats/` skill folder. Client compatibility and Agensi delivery must be tested before they are advertised as verified.
+
 ## Local Development and Testing
 
 Clone the repository and install dependencies:
