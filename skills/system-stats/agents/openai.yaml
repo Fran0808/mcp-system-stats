@@ -1,0 +1,3 @@
+interface:
+  display_name: "System Stats"
+  short_description: "Diagnose local performance using system metrics"

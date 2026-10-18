@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "system-stats": {
+      "command": "npx",
+      "args": ["-y", "@fran0808/system-stats@2.0.1"]
+    }
+  }
+}
