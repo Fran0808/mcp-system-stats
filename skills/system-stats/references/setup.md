@@ -1,75 +1,163 @@
-# Connect the local system-stats server
+# Connect system-stats to a compatible agent
 
-This skill uses the open-source MCP server at https://github.com/Fran0808/mcp-system-stats. It needs a client capable of starting a local stdio MCP server on the computer you want to inspect. Agensi supplies the skill instructions; it does not supply access to that computer's hardware.
+This skill uses https://github.com/Fran0808/mcp-system-stats. It requires an agent that can load the instructions and call the server through a local **stdio** MCP connection. Agensi supplies the skill, not access to the user's hardware. A cloud-only assistant without a local bridge cannot inspect the user's computer through this server.
 
-## Requirements
+The npm package supplies the server; the client's MCP configuration starts it; this skill supplies diagnostic instructions. Installing one does not automatically configure the others. The client launches the server, so you do not need to start it in another terminal.
 
-- Node.js 22.14 or later on the 22.x line, 24.x, or 26+. The current package does not support Node 20, 23, or 25.
-- `node` and `npx` available to the client process. Check `node --version` and `npx --version` in a terminal. Restart the client after installing Node so it inherits the updated PATH.
-- Network access to npm on the first `npx` launch if the package is not cached. `npx -y` downloads and executes the named package without its install confirmation. It is not an offline operation or a global installation.
-- No API key or administrator account is required for the basic server. Some sensors may be unavailable because of OS, drivers, permissions, or hardware. Do not elevate privileges just to eliminate a missing-data message.
+## 1. Requirements
 
-The templates pin `@fran0808/system-stats@2.0.1`, matching this skill's documented baseline. Before using a different release, check its compatibility and release notes. A published npm install still needs verification on a fresh client; a local source build does not prove registry availability.
+- Node.js 22.14+ on the 22.x line, 24.x, or 26+. The current package does not support Node 20, 23, or 25.
+- Check `node --version` and `npm --version`. The client must inherit the executable PATH; restart it after Node/npm installation.
+- Network access to npm for installation or an uncached npx launch. No API key is required for the basic server.
+- Missing sensors can reflect OS, drivers, permissions or hardware. Do not require administrator access or extra sensor software just to eliminate an unavailable reading.
 
-## Cursor and clients accepting mcpServers JSON
+The examples pin `@fran0808/system-stats@2.0.1`. Review compatibility before changing versions. In WSL, containers, SSH sessions or remote workspaces, readings describe the environment where the server runs, which may differ from the user's physical PC.
 
-Use [the macOS/Linux template](../assets/mcp-config.json) or [the Windows template](../assets/mcp-config.windows.json). These files are examples to merge into the client's configuration; placing a JSON file in a skill folder does not register a server.
+## 2. Install independently of the agent
 
-For Cursor, use a project's `.cursor/mcp.json` or the user-level `~/.cursor/mcp.json`. Merge the `system-stats` entry into the existing `mcpServers` object instead of replacing other servers. The same JSON shape is documented for Claude Desktop's `claude_desktop_config.json`; its usual Windows location is `%APPDATA%\Claude\claude_desktop_config.json`, and macOS location is `~/Library/Application Support/Claude/claude_desktop_config.json`.
+Install once, or skip if this version is already installed globally:
 
-The macOS/Linux entry is:
+```bash
+npm install -g @fran0808/system-stats@2.0.1
+```
+
+This supplies the `system-stats` executable. It does not register an MCP connection or install the skill. If npm reports a global-install permissions error, use a user-owned Node/npm installation rather than assuming elevation is required.
+
+## 3. Generic manual MCP connection
+
+Create one server named `system-stats` in the client's manual MCP configuration:
+
+| Setting | macOS/Linux | Native Windows |
+|---|---|---|
+| Transport | `stdio` | `stdio` |
+| Command | `system-stats` | `cmd.exe` |
+| Arguments | None | `["/d", "/c", "system-stats"]` |
+| Credentials | None | None |
+
+The Windows wrapper runs npm's executable shim. File location and JSON/TOML syntax depend on the client. Merge with existing settings; preserve other servers and update an existing entry instead of duplicating its name. These are process launch values, not a remote HTTP URL. Use an actual executable path if the client's PATH differs from your terminal.
+
+### Alternative: npx without global installation
+
+On macOS/Linux, use `command: npx` and `args: ["-y", "@fran0808/system-stats@2.0.1"]`. On native Windows, use `command: cmd.exe` with `args: ["/d", "/c", "npx", "-y", "@fran0808/system-stats@2.0.1"]`.
+
+The [macOS/Linux JSON template](../assets/mcp-config.json) and [Windows JSON template](../assets/mcp-config.windows.json) use this npx alternative. It downloads the pinned package if necessary and starts it from npm's cache; `-y` accepts npm's execution confirmation. It requires npm network access when uncached, but not `npm install -g`. Choose either npx or the installed executable for one entry. A template inside the skill does not register a server automatically.
+
+## 4. Optional examples by client
+
+These are separate clients with different configuration systems. The skill itself does not depend on any one of them. Configuration examples do not mean every client has been tested end to end.
+
+### Cursor
+
+Use project `.cursor/mcp.json` or user-level `~/.cursor/mcp.json`. After global npm installation, a native Windows entry is:
 
 ```json
 {
   "mcpServers": {
     "system-stats": {
-      "command": "npx",
-      "args": ["-y", "@fran0808/system-stats@2.0.1"]
+      "command": "cmd.exe",
+      "args": ["/d", "/c", "system-stats"]
     }
   }
 }
 ```
 
-On Windows, the template uses `cmd.exe` with `args: ["/d", "/c", "npx", "-y", "@fran0808/system-stats@2.0.1"]` so the npm command shim can run. This launches a fixed package command, not user-provided shell text. A client that cannot find Node/npm should use an explicitly configured installation path appropriate to that machine.
+On macOS/Linux use `"command": "system-stats"` and omit `args`. For npx substitute the alternative launch values above. Reconnect as required by the client, then run the common verification below.
 
-## Codex local clients
+### Claude Desktop: desktop chat's local MCP configuration
 
-Codex uses TOML rather than the JSON object above. On macOS/Linux, merge this table into the client's `config.toml`:
+Claude Desktop uses `claude_desktop_config.json` for this local MCP setup:
+
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`.
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`.
+
+Merge a `mcpServers` entry using the same JSON shape as Cursor and the launch values for your OS. Fully quit and reopen Desktop and verify a real tool call. This concerns local desktop chat, not browser-only Claude or the separate Claude Code runtime. Different tabs/runtimes in one application may use different configuration.
+
+### Claude Code: coding-agent configuration
+
+Claude Code is a different client/runtime, available through CLI and development interfaces. Configuring a local stdio server in Claude Desktop does not automatically register it with Claude Code.
+
+For manual project configuration, use `.mcp.json` at the project root. The native Windows entry after global npm installation is:
+
+```json
+{
+  "mcpServers": {
+    "system-stats": {
+      "type": "stdio",
+      "command": "cmd.exe",
+      "args": ["/d", "/c", "system-stats"]
+    }
+  }
+}
+```
+
+On macOS/Linux use `"command": "system-stats"` and omit `args`. Claude Code can ask for approval before using a project-scoped server in an interactive session.
+
+Alternatively, register through the CLI at user scope (available across projects). Native Windows:
+
+```powershell
+claude mcp add --transport stdio --scope user system-stats -- cmd.exe /d /c system-stats
+claude mcp list
+```
+
+macOS/Linux:
+
+```bash
+claude mcp add --transport stdio --scope user system-stats -- system-stats
+claude mcp list
+```
+
+The CLI manages its own configuration; user-scoped entries are in `~/.claude.json`, not Desktop's file. Choose manual configuration or CLI registration, not both for the same server. Restart/reconnect as required, inspect `/mcp` inside Claude Code and verify a tool call. If Code runs in WSL, use Linux launch values with an installation in that environment.
+
+### Codex: local client configuration
+
+Codex uses TOML, normally `~/.codex/config.toml` for user settings. After global npm installation, merge this native Windows table:
 
 ```toml
 [mcp_servers.system-stats]
-command = "npx"
-args = ["-y", "@fran0808/system-stats@2.0.1"]
+command = "cmd.exe"
+args = ["/d", "/c", "system-stats"]
 startup_timeout_sec = 60
 tool_timeout_sec = 60
 ```
 
-On Windows, replace the command and args with:
+On macOS/Linux use `command = "system-stats"` and omit `args`. For npx substitute the alternative launch values. Edit an existing table rather than adding a duplicate.
 
-```toml
-command = "cmd.exe"
-args = ["/d", "/c", "npx", "-y", "@fran0808/system-stats@2.0.1"]
+Alternatively, if Codex CLI is available, register instead of editing TOML. Native Windows:
+
+```powershell
+codex mcp add system-stats -- cmd.exe /d /c system-stats
+codex mcp list
 ```
 
-Keep these lines under the existing `[mcp_servers.system-stats]` table; do not add a duplicate table. First-launch downloads can need longer than the default startup timeout. Restart or reconnect as required by the client, then inspect its MCP status. In Codex CLI, `codex mcp list` lists configured servers and `/mcp` shows active servers in the TUI. Configuration is not proof that the handshake succeeded.
+macOS/Linux:
 
-## Verify the connection
+```bash
+codex mcp add system-stats -- system-stats
+codex mcp list
+```
 
-1. Confirm the client reports `system-stats` connected and exposes tools such as `get_memory_status` and `get_system_health`.
-2. Ask: "Use system-stats to show my current RAM usage in GB." Verify a real call to `get_memory_status` with `{"unit":"GB"}` returns a successful structured result. Do not mistake example output for telemetry.
-3. Ask: "My PC is slow. Compare several samples and explain the limits." The assistant should call `get_performance_diagnostics` and label unavailable data.
+If the terminal does not recognize `codex`, use manual configuration. Restart the local client and verify a tool call. `/mcp` shows active servers in Codex CLI. Local configuration does not register a connector in a cloud-only chat.
 
-If a tool fails, inspect its actual error. A missing `npx` is a startup/PATH problem; `UNSUPPORTED_PLATFORM` is a supported error contract, not a reason to retry indefinitely. A terminal waiting after starting the server is expected: stdio awaits protocol messages rather than printing a report.
+## 5. Common verification and troubleshooting
 
-For a developer source checkout, an alternative connection is `command: node` with an absolute path to that checkout's `build/index.js` after `npm ci` and `npm run build`. Use the actual path on the user's machine; this source-build option does not test the npm distribution.
+1. Confirm the client reports `system-stats` connected and exposes `get_memory_status` and `get_system_health`. A saved entry or CLI listing does not by itself prove a successful connection.
+2. Ask: "Use the system-stats MCP to show my current RAM usage in GB." Verify a real `get_memory_status` call with `{"unit":"GB"}` succeeds and returns structured data.
+3. With the skill loaded, ask: "My PC is slow. Compare several samples and explain the limits." Expect `get_performance_diagnostics` and an explanation of unavailable data. Do not substitute example numbers for live telemetry.
 
-## Load the skill separately
+If the installed command is missing, check the npm executable PATH in the client's environment and restart after installation. On Windows, `where.exe system-stats` shows the executable location; `npm prefix -g` shows the prefix. Configure an actual installation path if necessary. For npx, also check npm network access and startup time; the Codex example allows 60 seconds.
 
-For a direct GitHub distribution, install the complete `system-stats` skill folder in the client's documented skill location. For Agensi, load the listing through its supported connection. Either route still requires the local server configured above. Confirm supporting references and templates are accessible through the chosen delivery route; do not assume that Agensi writes a skill directory to disk.
+Inspect the actual error. `UNSUPPORTED_PLATFORM` is a supported contract, not a reason to retry indefinitely. A terminal waiting after manually starting the server is expected because stdio waits for protocol messages; the client normally starts it for you.
 
-## Documentation sources
+For a developer checkout, another launch option is `node` with an absolute path to `build/index.js` after `npm ci` and `npm run build`. That tests a source build rather than the published npm installation.
+
+## 6. Load the skill separately
+
+For GitHub distribution, install the complete skill folder in the client's documented skill location. For Agensi, load the listing through its supported connection. Both routes still require the local MCP connection. Confirm supporting references/templates are accessible through the chosen route; do not assume Agensi writes the folder to disk or every agent uses the same skill installation method.
+
+## Official references
 
 - [Cursor MCP configuration](https://cursor.com/docs/mcp)
-- [Local servers and Claude Desktop](https://modelcontextprotocol.io/docs/develop/connect-local-servers)
+- [Claude Desktop local servers](https://modelcontextprotocol.io/docs/develop/connect-local-servers)
+- [Claude Code MCP configuration](https://code.claude.com/docs/en/mcp)
 - [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
 - [system-stats source and release notes](https://github.com/Fran0808/mcp-system-stats)
